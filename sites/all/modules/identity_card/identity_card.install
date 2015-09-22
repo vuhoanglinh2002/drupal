@@ -1,0 +1,22 @@
+<?php
+/**
+ * Implement hook_field_schema()
+ */
+
+function identity_card_field_schema($field) {
+
+    $columns = array();
+    switch ($field['type']) {
+        case 'identity_card_info':
+            $columns = array(
+                'id_number' => array('type' => 'varchar', 'length' => '255', 'not null' => FALSE),
+                'issuer_place' => array('type' => 'varchar', 'length' => '255', 'not null' => FALSE),
+            );
+            break;
+    }
+
+    return array(
+        'columns' => $columns,
+    );
+}
+

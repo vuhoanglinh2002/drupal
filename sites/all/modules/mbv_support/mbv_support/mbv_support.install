@@ -1,0 +1,188 @@
+<?php
+
+/**
+ *  @author baonguyen
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function mbv_support_schema() {
+ $schema = array ();
+ 
+ $schema ['mbv_support_issue'] = array (
+   'description' => 'Table for mbv support issue',
+   'fields' => array (
+     'issue_id' => array (
+       'description' => 'Primary key for support issue',
+       'type' => 'serial',
+       'unsigned' => TRUE,
+       'not null' => TRUE 
+     ),
+     'ref_id' => array (
+       'description' => 'The order id of transaction',
+       'type' => 'varchar',
+       'length' => 255,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     'system_name' => array (
+       'description' => 'The system name (hotel, air...)',
+       'type' => 'varchar',
+       'length' => 32,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     'issue_type' => array (
+       'description' => 'Type of issue bug, unknown',
+       'type' => 'varchar',
+       'length' => 64,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     
+     'status' => array (
+       'description' => 'The status of ISSUE (PENDING,CLASSIFIED, VERIFIED)',
+       'type' => 'varchar',
+       'length' => 64,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     'memo' => array (
+       'description' => 'The detail of issue',
+       'type' => 'text',
+       'size' => 'big' 
+     ),
+     'meta_data' => array (
+       'description' => 'Meta information related to the issue',
+       'type' => 'blob',
+       'size' => 'big',
+       'serialize' => TRUE 
+     ),
+     
+     'uid' => array (
+       'description' => 'User id that modified issue',
+       'type' => 'int',
+       'default' => 0 
+     ),
+     
+     'created_at' => array (
+       'description' => 'The Unix timestamp of the issue creation time.',
+       'type' => 'int',
+       'not null' => TRUE,
+       'default' => 0 
+     ),
+     'updated_at' => array (
+       'description' => 'The Unix timestamp of the issue updation time.',
+       'type' => 'int',
+       'not null' => TRUE,
+       'default' => 0 
+     ),
+     
+     'revision_id' => array (
+       'description' => 'Track revision change of issue',
+       'type' => 'int',
+       'not null' => TRUE,
+       'default' => 0 
+     ) 
+   ),
+   'primary key' => array (
+     'issue_id' 
+   ),
+   'indexes' => array (
+     'ref_id' => array (
+       'ref_id' 
+     ),
+     'system_name' => array (
+       'system_name' 
+     ),
+     'issue_type' => array (
+       'issue_type' 
+     ),
+     'status' => array (
+       'status' 
+     ) 
+   ) 
+ );
+ 
+ // mbv_support_issue_revision
+ $schema ['mbv_support_issue_revision'] = array (
+   'description' => 'For tracking issue',
+   'fields' => array (
+     'revision_id' => array (
+       'description' => 'Primary key for revison id',
+       'type' => 'serial',
+       'unsigned' => TRUE,
+       'not null' => TRUE 
+     ),
+     'issue_id' => array (
+       'description' => 'Store issue id',
+       'type' => 'int',
+       'not null' => TRUE,
+       'default' => 0 
+     ),
+     'system_name' => array (
+       'description' => 'The system name (hotel, air...)',
+       'type' => 'varchar',
+       'length' => 32,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     'issue_type' => array (
+       'description' => 'Type of issue bug, unknown',
+       'type' => 'varchar',
+       'length' => 64,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     
+     'status' => array (
+       'description' => 'The status of ISSUE (PENDING,CLASSIFIED, VERIFIED)',
+       'type' => 'varchar',
+       'length' => 64,
+       'not null' => TRUE,
+       'default' => '' 
+     ),
+     'memo' => array (
+       'description' => 'The detail of issue',
+       'type' => 'text',
+       'size' => 'big' 
+     ),
+     'meta_data' => array (
+       'description' => 'Meta information related to the issue',
+       'type' => 'blob',
+       'size' => 'big',
+       'serialize' => TRUE 
+     ),
+     
+     'uid' => array (
+       'description' => 'User id that modified issue',
+       'type' => 'int',
+       'default' => 0 
+     ),
+     
+     'revision_timestamp' => array (
+       'description' => 'The Unix timestamp of the revision created.',
+       'type' => 'int',
+       'not null' => TRUE,
+       'default' => 0 
+     ),
+     'log' => array (
+       'description' => 'The detail of issue',
+       'type' => 'text',
+       'size' => 'big' 
+     ) 
+   ),
+   'primary key' => array (
+     'revision_id' 
+   ),
+   'indexes' => array (
+     'issue_id' => array (
+       'issue_id' 
+     ) 
+   ) 
+ );
+ 
+ return $schema;
+}
+

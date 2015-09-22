@@ -1,0 +1,100 @@
+<?php
+/**
+ * Implement hook_field_info()
+ */
+function field_type_state_field_info() {
+    $info = array(
+        'field_type_state' => array(
+            'label' => t('Field Type State'),
+            'description' => t('This is field stores a state in the database.'),
+            'default_widget' => 'field_type_state_field',
+            'default_formatter' => 'field_type_state_default',
+        ),
+    );
+    return $info;
+}
+
+/**
+ * Implement hook_field_widget_info()
+ */
+function field_type_state_widget_info() {
+    return array(
+        'field_type_state_field' => array(
+            'label' => t('Text field'),
+            'field types' => array('field_type_state'),
+        ),
+    );
+}
+
+/**
+ * Implement hook_field_settings_form()
+ */
+function field_type_state_field_settings_form($field, $instance, $has_data) {
+    $settings = $field['settings'];
+    // Add your global settings fields here
+    $form = array();
+    return $form;
+}
+
+/**
+ * Implement hook_field_instance_settings_form().
+ */
+function field_type_state_field_instance_settings_form($field, $instance) {
+    $settings = $instance['settings'];
+    // Add your instance settings fields here.
+    $form = array();
+    return $form;
+}
+
+/**
+ * Implement hook_field_widget_form().
+ */
+function field_type_state_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+    switch ($instance['widget']['type']) {
+        case 'field_type_state_field' :
+            $element['field_type_state'] = array(
+                '#type' => 'fieldset',
+                '#title' => $element['#title'],
+                '#tree' => TRUE,
+            );
+            $element['field_type_state']['state'] = array(
+                '#type' => 'select',
+                '#title' => t('State'),
+                '#default_value' => isset($items[$delta]['state']) ? $items[$delta]['state'] : '',
+                '#options' => array(
+                    'vn' => 'Viet Nam',
+                    'en' => 'Englang',
+                    'cn' => 'China',
+                    'la' => 'Lao'
+                ),
+                '#required' => $element['#required'],
+            );
+            break;
+    }
+    return $element;
+}
+
+/**
+ * Implement hook_field_presave().
+ */
+function field_type_state_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+    foreach( $items as $delta => $item) {
+        if(isset($item['field_type_state']['state'])) {
+            $item[$delta]['state'] = $item['field_type_state']['state'];
+        }
+    }
+}
+
+///**
+// * Implement hook_field_formatter_view()
+// */
+//function field_type_state_formatter_view($entity_type, $entity, $field, $intance, $langcode, $items, $display) {
+//    $element = array();
+//    switch ($display['type']) {
+//        case 'field_type_state_default' :
+//            foreach ($items as $delta => $item) {
+//                if
+//            }
+//            break;
+//    }
+//}

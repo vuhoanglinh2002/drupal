@@ -1,0 +1,14 @@
+name = MBV Support System - Hotel
+description = This module for Hotel System
+package = MBV
+
+core = 7.x
+version = '7.x-0.3-03'
+
+dependencies[] = mbv_support
+
+; Module includes
+
+; Views includes
+
+ 

@@ -1,0 +1,9 @@
+name = MBV Support System - Air
+description = This module for Air System
+package = MBV
+
+core = 7.x
+version = '7.x-0.1-22'
+
+dependencies[] = mbv_support
+

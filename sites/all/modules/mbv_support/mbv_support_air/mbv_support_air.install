@@ -1,0 +1,106 @@
+<?php
+
+/**
+ * Author: Bao Nguyen
+ */
+function mbv_support_air_uninstall() {
+ // Delete any line item reference fields via bundle
+ foreach ( field_info_instances('mbv_support_entity', 'mbv_issue_air' ) as $field_name => $field_info ) {
+  
+  mbv_fields_delete_fields($field_name );
+ }
+ 
+ mbv_fields_delete_instances('mbv_support_entity', 'mbv_issue_air' );
+ 
+ // Unset all variable value
+ variable_set('mbv_issue_air' . '_last_sync_time', '' );
+ variable_set('mbv_issue_air' . '_next_sync_time', '' );
+ variable_set('mbv_issue_air' . '_sync_status', '' );
+ 
+ variable_set('mbv_issue_air' . '_sync_url', '' );
+ variable_set('mbv_issue_air' . '_sync_time', '' );
+ variable_set('mbv_issue_air' . '_remind_time', '' );
+ variable_set('mbv_issue_air' . '_remind_time_flag', '' );
+}
+
+/**
+ * Implements hook_install().
+ */
+function mbv_support_air_install() {
+ // Add field instance default for air
+ $fields_info = array (
+   "air_brand" => array (
+     'field_name' => 'air_brand',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_air',
+     'label' => 'Air Brand',
+     'type' => 'list_text',
+     'lock' => TRUE,
+     'required' => TRUE,
+     'settings' => array (
+       'allowed_values' => array (
+         'Jetstar Pacific Airlines' => 'Jetstar Pacific Airlines',
+         'VASCO' => 'VASCO',
+         'VietJet Air' => 'VietJet Air',
+         'Vietnam Airlines' => 'Vietnam Airlines' 
+       ),
+       'allowed_values_function' => '' 
+     ),
+     'weight' => 1 
+   ),
+   
+   "air_failure" => array (
+     'field_name' => 'air_failure',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_air',
+     'label' => 'Air Failure',
+     'type' => 'list_text',
+     'lock' => TRUE,
+     'required' => TRUE,
+     'settings' => array (
+       'allowed_values' => array (
+         'unknown' => 'unknown',
+         'ticket reservation expired' => 'ticket reservation expired',
+         'short­term promotion ticket' => 'short­term promotion ticket',
+         'price change' => 'price change',
+         'system settlement for reporting' => 'system settlement for reporting',
+         'system error (bug)' => 'system error (bug)' 
+       ),
+       'allowed_values_function' => '' 
+     ),
+     'weight' => 15 
+   ),
+   
+   "air_jira" => array (
+     'field_name' => 'air_jira_bug_id',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_air',
+     'label' => 'Jira Bug Id',
+     'lock' => TRUE,
+     'type' => 'text',
+     'weight' => 20 
+   ),
+   
+   "air_file_upload" => array (
+     'field_name' => 'air_file_upload',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_air',
+     'label' => 'Upload file',
+     'type' => 'file',
+     'settings' => array (
+       'display_field' => 0,
+       'display_default' => 0,
+       'file_extensions' => 'txt log pdf doc odt jpg png jpeg gif',
+       'file_directory' => '',
+       'max_filesize' => '10 MB',
+       'description_field' => 0,
+       'uri_scheme' => variable_get('file_default_scheme', 'public' ) 
+     ),
+     'weight' => 30 
+   ) 
+ );
+ 
+ foreach ( $fields_info as $field_instance => $field_info ) {
+  mbv_support_field_create_instance($field_info );
+ }
+}

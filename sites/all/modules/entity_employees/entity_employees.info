@@ -1,0 +1,19 @@
+name = Entity Employees
+description = This module is using Entity. An example concept entity.
+package = Train Drupal
+
+core = 7.x
+version = '7.x-0.0'
+files[] = includes/entity_employees.pages.inc
+files[] = includes/entity_employees.controller.inc
+files[] = views/handlers/entity_employees_handler_field_employee.inc
+files[] = views/handlers/entity_employees_handler_field_employee_link.inc
+files[] = views/handlers/entity_employees_handler_field_employee_link_edit.inc
+files[] = views/handlers/entity_employees_handler_field_employee_operations.inc
+files[] = views/handlers/entity_employees_handler_field_employee_type.inc
+files[] = views/handlers/entity_employees_handler_argument_eid_id.inc
+files[] = views/handlers/entity_employees_handler_field_sex.inc
+
+dependencies[] = field
+dependencies[] = date_popup
+dependencies[] = date_api

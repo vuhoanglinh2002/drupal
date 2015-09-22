@@ -1,0 +1,73 @@
+<?php
+
+/**
+ * Implement form menu
+ */
+function module_example_menu(){
+    $items = array();
+
+    $items['module_example/form_profile'] = array(
+        'title'  =>  'Example form',
+        'description'  =>  '',
+        'page callback'  => 'drupal_get_form',
+        'page arguments'  => array('module_example_form'),
+        'access callback'  => TRUE
+    );
+
+    return $items;
+}
+
+/**
+ * Implements form api of drupal
+ */
+function module_example_form($form, &$form_state) {
+
+    $form['profile']['name'] = array(
+        '#type'  =>  'textfield'
+    );
+
+    $form['profile']['age'] = array(
+        '#type'  =>  'textfield'
+    );
+
+    $form['profile']['avatar'] = array(
+        '#type'  =>  'file'
+    );
+
+    $form['profile']['address'] = array(
+        '#type'  =>  'textarea'
+    );
+
+    $form['profile']['submit'] = array(
+        '#type'  =>  'submit',
+        '#value' =>  'Submit'
+    );
+
+    return $form;
+}
+
+/**
+ * Implement form validate
+ */
+function module_example_form_validate($form, &$form_state){
+
+}
+
+/**
+ * Implement form submit
+ */
+function module_example_form_submit($form, &$form_state){
+
+}
+
+/**
+ * Implement form alter
+ */
+function module_example_form_alter(&$form, &$form_state, $form_id){
+    $form['profile']['name'] = array(
+        '#value'  => 'Please, Type your name'
+    );
+}
+
+
+?>

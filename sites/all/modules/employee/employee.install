@@ -1,0 +1,58 @@
+<?php
+
+/**
+* Implements hook_schema()
+*/
+function employee_schema(){
+  $schema = array ();
+
+  $schema['employee_tbl'] = array(
+    'description' => 'store employee infomation',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'size' => 'big',
+      ),
+      'employee_id' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'description' => 'Employee id'
+      ),
+      'bundle_type' => array(
+        'description' => 'The bundle type',
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => TRUE,
+      ),
+      'fullname' => array(
+        'type' => 'varchar',
+        'length' => '255'
+      ),
+      'dayofbirth' => array(
+        'type' => 'datetime',
+        'mysql_type' => 'datetime',
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'employee_id' => array('employee_id'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+* Implements hook_uninstall()
+*/
+function employee_uninstall(){
+
+}
+
+/**
+* Implement hook_install()
+*/
+function employee_install(){
+
+}
+?>

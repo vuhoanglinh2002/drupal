@@ -1,0 +1,525 @@
+<?php
+
+/**
+ * Author: Bao Nguyen
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function mbv_support_air_menu() {
+ $items = array ();
+ 
+ $items ['admin/config/mbv_support/' . 'mbv_issue_air'] = array (
+   'title' => 'MBV Air',
+   'description' => 'MBV Air',
+   'page callback' => 'mbv_support_air_redirect_config_page',
+   'page arguments' => array (
+     3 
+   ),
+   'access arguments' => array (
+     'access administration pages' 
+   ) 
+ );
+ 
+ $items ['admin/config/mbv_support/' . 'mbv_issue_air' . '/sync'] = array (
+   'title' => 'Sync',
+   'description' => t('Sync data' ),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array (
+     'mbv_support_air_sync_data_form',
+     3 
+   ),
+   'access arguments' => array (
+     'sync mbv_issue_air entities' 
+   ),
+   'weight' => 20,
+   'type' => MENU_LOCAL_TASK,
+   'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+   'file' => 'includes/mbv_support_air_sync_form_pages.inc' 
+ );
+ 
+ $items ['admin/config/mbv_support/' . 'mbv_issue_air' . '/config'] = array (
+   'title' => 'Config',
+   'description' => t('Config sync data' ),
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array (
+     'mbv_support_air_config_form',
+     3 
+   ),
+   'access arguments' => array (
+     'sync mbv_issue_air entities' 
+   ),
+   'weight' => 10,
+   'type' => MENU_LOCAL_TASK,
+   'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+   'file' => 'includes/mbv_support_air_config_form_pages.inc' 
+ );
+ 
+ return $items;
+}
+
+function mbv_support_air_redirect_config_page($system) {
+ drupal_goto('admin/config/mbv_support/' . $system . '/config' );
+ return '';
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function mbv_support_air_entity_info_alter(&$entity_info) {
+ $entity_info ['mbv_support_entity'] ['bundles'] ['mbv_issue_air'] = array (
+   'label' => 'MBV Air System',
+   'admin' => array (
+     'path' => 'admin/structure/mbv_support/mbv_issue_air',
+     'access arguments' => array (
+       'administer mbv_support_entity entities' 
+     ) 
+   ) 
+ );
+}
+
+/**
+ * Implement hook_mbv_issue_type_info
+ */
+function mbv_support_air_mbv_issue_type_info() {
+ $mbv_support_air_types = array (
+   'mbv_issue_air' => array (
+     'description' => 'MBV Air',
+     'module' => 'mbv_issue_air',
+     'type' => 'mbv_issue_air',
+     'short_name' => 'air',
+     'name' => t('MBV Air' ) 
+   ) 
+ );
+ 
+ return $mbv_support_air_types;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * - Add check all jQuery
+ * - Hide save button when using form in Views
+ */
+function mbv_support_air_form_views_form_mbv_air_page_alter(&$form, &$form_state, $form_id) {
+ $form ['actions'] ['submit'] = array (
+   '#type' => 'submit',
+   '#value' => t('Save' ),
+   '#access' => 0 
+ );
+ 
+ // Check all buton
+ $form ['check-all'] = array (
+   '#type' => 'item',
+   '#markup' => l('Check all', '' ),
+   '#value' => 'Check all this page',
+   '#suffix' => ('
+			<script type="text/javascript">
+				jQuery(document).ready(function() {
+					jQuery("#edit-check-all").click(function() {
+
+                      var arr = jQuery(".view-id-mbv_air tr").find("input[type=checkbox]:checked");
+                      console.log("init no checked: " + arr.length);
+                      if(arr.length == "0"){
+                         var arr = jQuery(".view-id-mbv_air tr").find("input[type=checkbox]").attr("checked","checked");
+                         jQuery("#edit-check-all").attr("value", "Uncheck all this page");
+                         jQuery("#edit-check-all > a").text("Uncheck all");
+                      }else{
+                         var arr = jQuery(".view-id-mbv_air tr").find("input[type=checkbox]").attr("checked","");
+                         jQuery("#edit-check-all").attr("value", "Check all this page");
+                         jQuery("#edit-check-all > a").text("Check all");
+                      }
+                      console.log(arr.length);
+        						return false;
+        					});
+				});
+			</script>
+		'),
+   '#weight' => 90 
+ );
+ 
+ $form ['status'] = array (
+   '#title' => 'Status',
+   '#type' => 'select',
+   '#options' => mbv_issue_statuses(),
+   '#weight' => 100 
+ );
+ 
+ $form ['update_memo'] = array (
+   '#type' => 'textfield',
+   '#title' => t('Memo' ),
+   '#weight' => 110 
+ );
+ 
+ $form ['submit_multi'] = array (
+   '#type' => 'submit',
+   '#value' => 'Update',
+   '#attributes' => array (
+     'onclick' => 'if(!confirm("You are updating over one item, are you sure to continue ?")){return false;}' 
+   ),
+   '#submit' => array (
+     'mbv_support_air_check_all_submit' 
+   ),
+   '#validate' => array (
+     'mbv_support_air_check_all_validate' 
+   ),
+   '#weight' => 120 
+ );
+ 
+ // Dirty hack
+ if (! user_access('view mbv_issue_air entities' )) {
+  drupal_set_title(t('Access denied' ) );
+  $return = t('You are not authorized to access this page..' );
+  print drupal_render_page($return );
+ }
+}
+
+function mbv_support_air_check_all_validate($form, &$form_state) {
+ // Check checkbox
+ if (empty($form_state ['values'] ['check_box'] ) || t(array_filter($form_state ['values'] ['check_box'] ) ) <= 0) {
+  form_set_error('check_box', 'Please select at least one issue !' );
+ }
+ 
+ // No action
+ if ($form_state ['values'] ['status'] == '' && $form_state ['values'] ['update_memo'] == '') {
+  form_set_error('check_box', 'Update multiple with no action !' );
+ }
+ 
+ if (! user_access('edit mbv_issue_air entities' )) {
+  form_set_error('', 'You do not allow to update issues, please contact to administrator to grant this permission.' );
+ }
+}
+
+function mbv_support_air_check_all_submit($form, &$form_state) {
+ $results = array_filter($form_state ['values'] ['check_box'] );
+ 
+ global $user;
+ 
+ foreach ( $results as $var ) {
+  
+  $entity = mbv_support_load($var );
+  $entity->status = $form_state ['values'] ['status'] == '' ? $entity->status : $form_state ['values'] ['status'];
+  $entity->memo = $form_state ['values'] ['update_memo'] == '' ? $entity->memo : $form_state ['values'] ['update_memo'];
+  $entity->updated_at = time();
+  $entity->uid = $user->uid;
+  $entity->meta_data = is_array(unserialize($entity->meta_data ) ) ? unserialize($entity->meta_data ) : array ();
+  $entity = entity_get_controller('mbv_support_entity' )->save($entity );
+ }
+ drupal_set_message("Update success, Total issues: " . count($results ) );
+ drupal_set_message("Status:[" . $form_state ['values'] ['status'] . "], Memo: [" . $form_state ['values'] ['update_memo'] . "]" );
+}
+
+function mbv_support_air_views_api() {
+ return array (
+   'api' => 3,
+   'path' => drupal_get_path('module', 'mbv_support_air' ) . '/includes' 
+ );
+}
+
+/**
+ * Implements hook_permission().
+ */
+function mbv_support_air_permission() {
+ return array (
+   'sync mbv_issue_air entities' => array (
+     'title' => t('Allow Sync MBV System Issue' ),
+     'description' => t('Allow Sync mbv_issue_air Issue' ) 
+   ),
+   'view mbv_issue_air entities' => array (
+     'title' => t('View MBV Air Issue' ),
+     'description' => t('View mbv_issue_air Issue' ) 
+   ),
+   'edit mbv_issue_air entities' => array (
+     'title' => t('Create and Edit MBV Air Issue' ),
+     'description' => t('Edit mbv_issue_air Issue' ) 
+   ) 
+ );
+}
+
+/**
+ * SYNC ISSUE - AIR
+ */
+function mbv_support_air_load_system_air($entity, $data_config) {
+ $time_start = microtime(true );
+ 
+ global $base_url;
+ 
+ try {
+  
+  // Add date time to url
+  $url = $data_config ['url_config'];
+  
+  $last_sync_time = $entity->last_sync_time;
+  $next_sync_time = $entity->next_sync_time;
+  
+  $date_ref_search_next = date("Y-m-d%20H:i:s", $last_sync_time - 600 ); // lay nguoc du lieu truoc do 10p de chac chan trong luc sync khong co data moi
+  
+  $url .= '&page=' . 1 . '&date_start=' . $date_ref_search_next;
+  
+  $res = drupal_http_request($url, array (
+    "method" => "GET",
+    "timeout" => 120 
+  ) );
+  
+  // Remove BOM char (very bad when do this way !!!)
+  $jfo = ! empty($res->data ) ? json_decode(substr($res->data, 3, strlen($res->data ) ), true ) : '';
+  if (count($jfo ) > 0 && ! empty($jfo )) {
+   // Get number paging
+   $paging = $jfo ['paging'];
+   
+   $total = $jfo ['total'];
+   
+   // Get list ref - check duplicate
+   $ref_ids = mbv_support_get_list_ref_id();
+   
+   // Check if has paging, add paging parameters in URL and fetch next data
+   if ($paging == 1) {
+    // Fetch first data
+    $orders = $jfo ['orders'];
+    
+    $count = 0;
+    foreach ( $orders as $order ) {
+     // Check exist ref_if - not allow add duplicate
+     if (! in_array($order ['order_id'], $ref_ids )) {
+      
+      $entity_new = entity_get_controller('mbv_support_entity' )->create();
+      
+      $count ++; // Check if have data
+                 
+      // Assign data to new entity
+      $entity_new->system_name = 'mbv_issue_air';
+      $entity_new->issue_type = '';
+      $entity_new->ref_id = $order ['order_id'];
+      $entity_new->status = 'pending';
+      $entity_new->memo = 'Sync automatic at ' . format_date(time() ) . ', ' . $order ['store_name'] . ', System: ' . $order ['name'];
+      $entity_new->meta_data = $order;
+      $entity_new->created_at = time();
+      $entity_new->updated_at = time();
+      $entity_new->revision_id = 0;
+      
+      $entity_new = entity_get_controller('mbv_support_entity' )->save($entity_new );
+     }
+    }
+   } else if ($paging > 1) {
+    $count = 0;
+    for($i = 1; $i <= $paging; $i ++) {
+     
+     $url = $data_config ['url_config'];
+     
+     $url .= '&page=' . $i . '&date_start=' . $date_ref_search_next;
+     
+     $res = drupal_http_request($url, array (
+       "method" => "GET",
+       "timeout" => 120 
+     ) );
+     
+     $jfo = json_decode(substr($res->data, 3, strlen($res->data ) ), true );
+     
+     $orders = $jfo ['orders'];
+     
+     foreach ( $orders as $order ) {
+      
+      // Check exist ref_if - not allow add duplicate
+      if (! in_array($order ['order_id'], $ref_ids )) {
+       
+       $count ++; // Check if have data
+                  
+       // Create new entity stdClass Object
+       $entity_new = entity_get_controller('mbv_support_entity' )->create();
+       
+       // Assign data to new entity
+       $entity_new->system_name = 'mbv_issue_air';
+       $entity_new->issue_type = '';
+       $entity_new->ref_id = $order ['order_id'];
+       $entity_new->status = 'pending';
+       $entity_new->memo = 'Sync automatic at ' . format_date(time() ) . ', ' . $order ['store_name'] . ', Name: ' . $order ['name'];
+       $entity_new->meta_data = $order;
+       $entity_new->created_at = time();
+       $entity_new->updated_at = time();
+       $entity_new->revision_id = 0;
+       
+       $entity_new = entity_get_controller('mbv_support_entity' )->save($entity_new );
+      }
+     }
+    }
+   }
+   
+   /*
+    * SYNC DONE Next: Update data config mbv_support_sync table
+    */
+   
+   // 2013-05-02 02:38:18 + time config
+   $next_sync_time = date('Y-m-d H:i:s', strtotime(date("Y-m-d H:i:s" ) . ' + ' . $data_config ['time_config'] . ' minute' ) );
+   
+   if ($count > 0) {
+    $date_sync = date("Y-m-d", $time_start );
+    $time_sync = date("H:i:s", $time_start );
+    
+    $full_url_search = $base_url . '/?q=mbv/issue/' . 'air' . '/list&filter_issue_statues=All&filter_created_from[date]=' . $date_sync . '&filter_created_from[time]=' . $time_sync . '&filter_created_to[date]=&filter_created_to[time]=&filter_memo=&filter_ref_id=';
+    
+    variable_set('mbv_issue_air' . '_last_sync_time', time() );
+    variable_set('mbv_issue_air' . '_next_sync_time', strtotime($next_sync_time ) );
+    variable_set('mbv_issue_air' . '_sync_status', 'SUCCESS<br/>Total issue: ' . $count . '<br/>Link view result: <a href="' . $full_url_search . '" target="_blank">Click here to vew result (open in new tab)</a> ' );
+    
+    return $count;
+   } else if ($count == 0) {
+    variable_set('mbv_issue_air' . '_last_sync_time', time() );
+    variable_set('mbv_issue_air' . '_next_sync_time', strtotime($next_sync_time ) );
+    variable_set('mbv_issue_air' . '_sync_status', 'SUCCESS [No data result]' );
+    
+    return 0;
+   }
+  } else {
+   
+   $full_error = '';
+   foreach ( $res as $key => $value ) {
+    if (! is_array($value )) {
+     $full_error .= $key . ": " . strip_tags($value ) . "<br/>";
+    } else {
+     foreach ( $value as $key1 => $value1 ) {
+      $full_error .= $key1 . ": " . strip_tags($value1 ) . "<br/>";
+     }
+    }
+   }
+   
+   variable_set('mbv_issue_air' . '_sync_status', 'FAILED <br/>URL: ' . $url . '<br/>' . $full_error );
+   
+   return - 1;
+  }
+ } catch ( Exception $e ) {
+  $entity->sync_status = "Stop sync, something when wrong. <br/>" . $e->getMessage() . ', code:' . $e->getCode();
+  variable_set('mbv_issue_air' . 'Stop sync, something when wrong at try - catch. <br/>' . $e->getMessage() . ', code:' . $e->getCode() );
+  
+  return - 1;
+ }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function mbv_support_air_cron() {
+ global $language;
+ $entity = mbv_support_check_exist_system_air('mbv_support_air' );
+ 
+ /**
+  * Automatic sync issue
+  */
+ if (time() >= $entity->next_sync_time) {
+  
+  $data_config = array (
+    'url_config' => variable_get('mbv_issue_air' . '_sync_url' ),
+    'time_config' => variable_get('mbv_issue_air' . '_sync_time' ) 
+  );
+  
+  $resutl = mbv_support_air_load_system_air($entity, $data_config );
+  
+  // Get data config after sync success
+  if ($resutl > 0) {
+   mbv_support_send_email(date('Y-d-m H:i:s', time() ), variable_get('mbv_issue_air_sync_status' ) );
+  }
+ }
+ 
+ /**
+  * Automatic send remind old issue
+  */
+ 
+ $type = 'mbv_issue_air';
+ 
+ if (! empty(variable_get($type . '_remind_time' ) )) {
+  // Get xxx day to check system and send remind email
+  $time_remind = variable_get($type . '_remind_time' );
+  
+  // Get last time to send remind email - flag
+  $time_remind_flag = variable_get($type . '_remind_time_flag' );
+  
+  // Calculate next time to check system and send remind email
+  $start_time_send = strtotime(date('Y-m-d H:i:s', strtotime(date('Y-m-d H:i:s', $time_remind_flag ) . ' + ' . $time_remind . ' minute' ) ) );
+  
+  // If current time >= next send remind email
+  if (time() >= $start_time_send) {
+   
+   // Get date delete = current time - date delete
+   $date_send_remind_email = strtotime(date('Y-m-d H:i:s', strtotime(date("Y-m-d H:i:s" ) . ' - ' . $time_remind . ' minute' ) ) );
+   
+   // Send email to user if issues still in status 'classfied'
+   // Gui email cho nhung issue ma duoc tao ra cach thoi gian hien tai xxx ngay va van con dang o trang thai Pending
+   $query = db_select('mbv_support_issue', 'm' );
+   $query->innerjoin('users', 'u', 'u.uid = m.uid' );
+   $query->fields('m', array (
+     'issue_id',
+     'system_name' 
+   ) )->fields('u', array (
+     'mail' 
+   ) )->condition('m.status', array (
+     'pending' 
+   ), '=' )->condition('m.system_name', array (
+     'mbv_issue_air' 
+   ), '=' )->condition('m.uid', array (
+     0 
+   ), '>=' )->condition('m.created_at', array (
+     $date_send_remind_email 
+   ), '<=' );
+   
+   $results = $query->execute()->fetchAll();
+   
+   global $base_url;
+   
+   foreach ( $results as $issue ) {
+    if ($issue->mail == '') {
+     $email = variable_get('sync_email_config' );
+     
+     $email = trim($email, ";" );
+     
+     $list_email_arr = str_replace(';', ',', $email );
+     $issue->mail = $list_email_arr;
+    }
+    $system_name = explode('_', $issue->system_name );
+    
+    // Send email
+    $params ['subject'] = t('MBV Support Issue - ' . $issue->issue_id );
+    $params ['body'] = array (
+      t('This issue still in "Pending" status of MBV AIR, please verify and resovle this issue. <br/>
+      Link to view this issue: ' . $base_url . '/?q=mbv/issue/' . $system_name [2] . '/' . $issue->issue_id ) 
+    );
+    drupal_mail('mbv_support', 'system_sync', $issue->mail, $language, $params );
+   }
+   
+   // Set time send remind email
+   variable_set($type . '_remind_time_flag', time() );
+  }
+ }
+}
+
+/**
+ * Check exist system
+ */
+function mbv_support_check_exist_system_air($system_name) {
+ $last_sync_time = variable_get($system_name . '_last_sync_time' );
+ $next_sync_time = variable_get($system_name . '_next_sync_time' );
+ $sync_status = variable_get('mbv_issue_air' . '_sync_status' );
+ 
+ if (! empty($last_sync_time ) && ! empty($next_sync_time )) {
+  $entity = new stdClass();
+  $entity->last_sync_time = $last_sync_time;
+  $entity->next_sync_time = $next_sync_time;
+  $entity->sync_status = $sync_status;
+  
+  return $entity;
+ } else {
+  variable_set($system_name . '_last_sync_time', 0 );
+  variable_set($system_name . '_next_sync_time', 0 );
+  variable_set($system_name . '_sync_status', 'Init system' );
+  
+  $last_sync_time = variable_get($system_name . '_last_sync_time' );
+  $next_sync_time = variable_get($system_name . '_next_sync_time' );
+  $sync_status = variable_get($system_name . '_sync_status' );
+  
+  $entity = new stdClass();
+  $entity->last_sync_time = $last_sync_time;
+  $entity->next_sync_time = $next_sync_time;
+  $entity->sync_status = $sync_status;
+  
+  return $entity;
+ }
+}
+

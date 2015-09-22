@@ -1,0 +1,12 @@
+<?php
+$INC = 'inc';
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.menus');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.view');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.form');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.page');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.permission');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.controller');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.action');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.entity');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.vbo');
+module_load_include($INC, 'auto_topup', 'includes/auto_topup.link.restapi');

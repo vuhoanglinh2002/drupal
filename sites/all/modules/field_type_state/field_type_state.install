@@ -1,0 +1,17 @@
+<?php
+/**
+ * Implement hook_field_schema()
+ */
+function field_type_state_field_schema($field) {
+    $columns = array(
+      'columns' => array(
+        'state' => array(
+          'type' => 'varchar',
+          'length' => 2,
+          'not null' => FALSE,
+        ),
+      ),
+    );
+    return $columns;
+}
+

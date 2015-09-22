@@ -1,0 +1,6 @@
+name = Define Custom Field Types. Field Types is State.
+description = This is module define custom field type.
+package = Field Type State
+core = 7.x
+version = '7.x-0.1'
+dependencies[] = field

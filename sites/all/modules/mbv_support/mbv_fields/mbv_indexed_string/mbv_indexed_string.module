@@ -1,0 +1,708 @@
+<?php
+
+/**
+ * @author baonguyen
+ *
+ */
+
+/**
+ * FIELD TYPE
+ * Implements hook_field_info().
+ */
+function mbv_indexed_string_field_info() {
+ return array (
+   'indexed' => array (
+     'label' => t('MBV indexed Text' ),
+     'description' => t('This field stores and indexs text in the database.' ),
+     'settings' => array (
+       'max_length' => 255 
+     ),
+     'settings' => array (
+       'allowed_values' => array (),
+       'allowed_values_function' => '' 
+     ),
+     'default_widget' => 'mbv_indexed_string_options_select',
+     'default_formatter' => 'mbv_indexed_string_list_default' 
+   ) 
+ );
+}
+
+/**
+ * Implements hook_field_settings_form().
+ */
+function mbv_indexed_string_field_settings_form($field, $instance, $has_data) {
+ $settings = $field ['settings'];
+ 
+ switch ($field ['type']) {
+  case 'indexed' :
+   $form ['allowed_values'] = array (
+     '#type' => 'textarea',
+     '#title' => t('Allowed values list' ),
+     '#default_value' => list_allowed_values_string($settings ['allowed_values'] ),
+     '#rows' => 10,
+     '#element_validate' => array (
+       'list_allowed_values_setting_validate' 
+     ),
+     '#field_has_data' => $has_data,
+     '#field' => $field,
+     '#field_type' => $field ['type'],
+     '#access' => empty($settings ['allowed_values_function'] ) 
+   );
+   
+   $description = '<p>' . t('The possible values this field can contain. Enter one value per line, in the format key|label.' );
+   if ($field ['type'] == 'list_integer' || $field ['type'] == 'list_float') {
+    $description .= '<br/>' . t('The key is the stored value, and must be numeric. The label will be used in displayed values and edit forms.' );
+    $description .= '<br/>' . t('The label is optional: if a line contains a single number, it will be used as key and label.' );
+    $description .= '<br/>' . t('Lists of labels are also accepted (one label per line), only if the field does not hold any values yet. Numeric keys will be automatically generated from the positions in the list.' );
+   } else {
+    $description .= '<br/>' . t('The key is the stored value. The label will be used in displayed values and edit forms.' );
+    $description .= '<br/>' . t('The label is optional: if a line contains a single string, it will be used as key and label.' );
+   }
+   $description .= '</p>';
+   $form ['allowed_values'] ['#description'] = $description;
+   
+   break;
+  
+  case 'list_boolean' :
+   $values = $settings ['allowed_values'];
+   $off_value = array_shift($values );
+   $on_value = array_shift($values );
+   
+   $form ['allowed_values'] = array (
+     '#type' => 'value',
+     '#description' => '',
+     '#value_callback' => 'list_boolean_allowed_values_callback',
+     '#access' => empty($settings ['allowed_values_function'] ) 
+   );
+   $form ['allowed_values'] ['on'] = array (
+     '#type' => 'textfield',
+     '#title' => t('On value' ),
+     '#default_value' => $on_value,
+     '#required' => FALSE,
+     '#description' => t('If left empty, "1" will be used.' ),
+     // Change #parents to make sure the element is not saved into field
+     // settings.
+     '#parents' => array (
+       'on' 
+     ) 
+   );
+   $form ['allowed_values'] ['off'] = array (
+     '#type' => 'textfield',
+     '#title' => t('Off value' ),
+     '#default_value' => $off_value,
+     '#required' => FALSE,
+     '#description' => t('If left empty, "0" will be used.' ),
+     // Change #parents to make sure the element is not saved into field
+     // settings.
+     '#parents' => array (
+       'off' 
+     ) 
+   );
+   
+   // Link the allowed value to the on / off elements to prepare for the rare
+   // case of an alter changing #parents.
+   $form ['allowed_values'] ['#on_parents'] = &$form ['allowed_values'] ['on'] ['#parents'];
+   $form ['allowed_values'] ['#off_parents'] = &$form ['allowed_values'] ['off'] ['#parents'];
+   
+   break;
+ }
+ 
+ // Alter the description for allowed values depending on the widget type.
+ if ($instance ['widget'] ['type'] == 'options_onoff') {
+  $form ['allowed_values'] ['#description'] .= '<p>' . t("For a 'single on/off checkbox' widget, define the 'off' value first, then the 'on' value in the <strong>Allowed values</strong> section. Note that the checkbox will be labeled with the label of the 'on' value." ) . '</p>';
+ } elseif ($instance ['widget'] ['type'] == 'options_buttons') {
+  $form ['allowed_values'] ['#description'] .= '<p>' . t("The 'checkboxes/radio buttons' widget will display checkboxes if the <em>Number of values</em> option is greater than 1 for this field, otherwise radios will be displayed." ) . '</p>';
+ }
+ $form ['allowed_values'] ['#description'] .= '<p>' . t('Allowed HTML tags in labels: @tags', array (
+   '@tags' => _field_filter_xss_display_allowed_tags() 
+ ) ) . '</p>';
+ 
+ $form ['allowed_values_function'] = array (
+   '#type' => 'value',
+   '#value' => $settings ['allowed_values_function'] 
+ );
+ $form ['allowed_values_function_display'] = array (
+   '#type' => 'item',
+   '#title' => t('Allowed values list' ),
+   '#markup' => t('The value of this field is being determined by the %function function and may not be changed.', array (
+     '%function' => $settings ['allowed_values_function'] 
+   ) ),
+   '#access' => ! empty($settings ['allowed_values_function'] ) 
+ );
+ 
+ return $form;
+}
+
+/**
+ * Element validate callback; check that the entered values are valid.
+ */
+function mbv_indexed_string_allowed_values_setting_validate($element, &$form_state) {
+ $field = $element ['#field'];
+ $has_data = $element ['#field_has_data'];
+ $field_type = $field ['type'];
+ $generate_keys = ($field_type == 'list_integer' || $field_type == 'list_float') && ! $has_data;
+ 
+ $values = list_extract_allowed_values($element ['#value'], $field ['type'], $generate_keys );
+ 
+ if (! is_array($values )) {
+  form_error($element, t('Allowed values list: invalid input.' ) );
+ } else {
+  // Check that keys are valid for the field type.
+  foreach ( $values as $key => $value ) {
+   if ($field_type == 'list_integer' && ! preg_match('/^-?\d+$/', $key )) {
+    form_error($element, t('Allowed values list: keys must be integers.' ) );
+    break;
+   }
+   if ($field_type == 'list_float' && ! is_numeric($key )) {
+    form_error($element, t('Allowed values list: each key must be a valid integer or decimal.' ) );
+    break;
+   } elseif ($field_type == 'indexed' && drupal_strlen($key ) > 255) {
+    form_error($element, t('Allowed values list: each key must be a string at most 255 characters long.' ) );
+    break;
+   }
+  }
+  
+  // Prevent removing values currently in use.
+  if ($has_data) {
+   $lost_keys = array_diff(array_keys($field ['settings'] ['allowed_values'] ), array_keys($values ) );
+   if (_list_values_in_use($field, $lost_keys )) {
+    form_error($element, t('Allowed values list: some values are being removed while currently in use.' ) );
+   }
+  }
+  
+  form_set_value($element, $values, $form_state );
+ }
+}
+
+/**
+ * Form element #value_callback: assembles the allowed values for 'boolean' fields.
+ */
+function mbv_indexed_string_boolean_allowed_values_callback($element, $input, $form_state) {
+ $on = drupal_array_get_nested_value($form_state ['input'], $element ['#on_parents'] );
+ $off = drupal_array_get_nested_value($form_state ['input'], $element ['#off_parents'] );
+ return array (
+   $off,
+   $on 
+ );
+}
+
+/**
+ * Implements hook_field_update_field().
+ */
+function mbv_indexed_string_field_update_field($field, $prior_field, $has_data) {
+ drupal_static_reset('mbv_indexed_string_allowed_values' );
+}
+
+/**
+ * Returns the array of allowed values for a list field.
+ *
+ * The strings are not safe for output. Keys and values of the array should be
+ * sanitized through field_filter_xss() before being displayed.
+ *
+ * @param $field The
+ *         field definition.
+ * @param $instance (optional)
+ *         A field instance array. Defaults to NULL.
+ * @param $entity_type (optional)
+ *         The type of entity; e.g. 'node' or 'user'. Defaults to NULL.
+ * @param $entity (optional)
+ *         The entity object. Defaults to NULL.
+ *         
+ * @return The array of allowed values. Keys of the array are the raw stored values
+ *         (number or text), values of the array are the display labels.
+ */
+function mbv_indexed_string_allowed_values($field, $instance = NULL, $entity_type = NULL, $entity = NULL) {
+ $allowed_values = &drupal_static(__FUNCTION__, array () );
+ 
+ if (! isset($allowed_values [$field ['id']] )) {
+  $function = $field ['settings'] ['allowed_values_function'];
+  // If $cacheable is FALSE, then the allowed values are not statically
+  // cached. See list_test_dynamic_values_callback() for an example of
+  // generating dynamic and uncached values.
+  $cacheable = TRUE;
+  if (! empty($function ) && function_exists($function )) {
+   $values = $function($field, $instance, $entity_type, $entity, $cacheable );
+  } else {
+   $values = $field ['settings'] ['allowed_values'];
+  }
+  
+  if ($cacheable) {
+   $allowed_values [$field ['id']] = $values;
+  } else {
+   return $values;
+  }
+ }
+ 
+ return $allowed_values [$field ['id']];
+}
+
+/**
+ * Parses a string of 'allowed values' into an array.
+ *
+ * @param $string The
+ *         list of allowed values in string format described in
+ *         list_allowed_values_string().
+ * @param $field_type The
+ *         field type. Either 'list_number' or 'list_text'.
+ * @param $generate_keys Boolean
+ *         value indicating whether to generate keys based on the position of
+ *         the value if a key is not manually specified, and if the value cannot be
+ *         used as a key. This should only be TRUE for fields of type 'list_number'.
+ *         
+ * @return The array of extracted key/value pairs, or NULL if the string is invalid.
+ *        
+ * @see list_allowed_values_string()
+ */
+function mbv_indexed_string_extract_allowed_values($string, $field_type, $generate_keys) {
+ $values = array ();
+ 
+ $list = explode("\n", $string );
+ $list = array_map('trim', $list );
+ $list = array_filter($list, 'strlen' );
+ 
+ $generated_keys = $explicit_keys = FALSE;
+ foreach ( $list as $position => $text ) {
+  $value = $key = FALSE;
+  
+  // Check for an explicit key.
+  $matches = array ();
+  if (preg_match('/(.*)\|(.*)/', $text, $matches )) {
+   $key = $matches [1];
+   $value = $matches [2];
+   $explicit_keys = TRUE;
+  }   // Otherwise see if we can use the value as the key. Detecting true integer
+    // strings takes a little trick.
+  elseif ($field_type == 'indexed' || ($field_type == 'list_float' && is_numeric($text )) || ($field_type == 'list_integer' && is_numeric($text ) && (float) $text == intval($text ))) {
+   $key = $value = $text;
+   $explicit_keys = TRUE;
+  }   // Otherwise see if we can generate a key from the position.
+  elseif ($generate_keys) {
+   $key = (string) $position;
+   $value = $text;
+   $generated_keys = TRUE;
+  } else {
+   return;
+  }
+  
+  // Float keys are represented as strings and need to be disambiguated
+  // ('.5' is '0.5').
+  if ($field_type == 'list_float' && is_numeric($key )) {
+   $key = (string) (float) $key;
+  }
+  
+  $values [$key] = $value;
+ }
+ 
+ // We generate keys only if the list contains no explicit key at all.
+ if ($explicit_keys && $generated_keys) {
+  return;
+ }
+ 
+ return $values;
+}
+
+/**
+ * Generates a string representation of an array of 'allowed values'.
+ *
+ * This string format is suitable for edition in a textarea.
+ *
+ * @param $values An
+ *         array of values, where array keys are values and array values are
+ *         labels.
+ *         
+ * @return The string representation of the $values array:
+ *         - Values are separated by a carriage return.
+ *         - Each value is in the format "value|label" or "value".
+ */
+function mbv_indexed_string_allowed_values_string($values) {
+ $lines = array ();
+ foreach ( $values as $key => $value ) {
+  $lines [] = "$key|$value";
+ }
+ return implode("\n", $lines );
+}
+
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function mbv_indexed_string_field_is_empty($item, $field) {
+ if (empty($item ['text'] ) && (string) $item ['text'] !== '0') {
+  return TRUE;
+ }
+ return FALSE;
+}
+
+/**
+ * Implements hook_field_widget_info_alter().
+ *
+ * The List module does not implement widgets of its own, but reuses the
+ * widgets defined in options.module.
+ *
+ * @see list_options_list()
+ */
+function mbv_indexed_string_field_widget_info_alter(&$info) {
+ $widgets = array (
+   'mbv_indexed_string_options_select' => array (
+     'indexed' 
+   ) 
+ );
+ 
+ foreach ( $widgets as $widget => $field_types ) {
+  $info [$widget] ['field types'] = array_merge($info [$widget] ['field types'], $field_types );
+ }
+}
+
+/**
+ * Implements hook_options_list().
+ */
+function mbv_indexed_string_options_list($field, $instance, $entity_type, $entity) {
+ return mbv_indexed_string_allowed_values($field, $instance, $entity_type, $entity );
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function mbv_indexed_string_field_formatter_info() {
+ return array (
+   'mbv_indexed_string_list_default' => array (
+     'label' => t('Default' ),
+     'field types' => array (
+       'indexed' 
+     ) 
+   ) 
+ );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function mbv_indexed_string_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+ $element = array ();
+ 
+ switch ($display ['type']) {
+  case 'mbv_indexed_string_list_default' :
+   $allowed_values = list_allowed_values($field, $instance, $entity_type, $entity );
+   foreach ( $items as $delta => $item ) {
+    if (isset($allowed_values [$item ['value']] )) {
+     $output = field_filter_xss($allowed_values [$item ['value']] );
+    } else {
+     // If no match was found in allowed values, fall back to the key.
+     $output = field_filter_xss($item ['value'] );
+    }
+    $element [$delta] = array (
+      '#markup' => $output 
+    );
+   }
+   break;
+  
+  case 'list_key' :
+   foreach ( $items as $delta => $item ) {
+    $element [$delta] = array (
+      '#markup' => field_filter_xss($item ['value'] ) 
+    );
+   }
+   break;
+ }
+ 
+ return $element;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ *
+ * Field type modules willing to use those widgets should:
+ * - Use hook_field_widget_info_alter() to append their field own types to the
+ * list of types supported by the widgets,
+ * - Implement hook_options_list() to provide the list of options.
+ * See list.module.
+ */
+function mbv_indexed_string_field_widget_info() {
+ return array (
+   'mbv_indexed_string_options_select' => array (
+     'label' => t('Select list' ),
+     'field types' => array (),
+     'behaviors' => array (
+       'multiple values' => FIELD_BEHAVIOR_CUSTOM 
+     ) 
+   ) 
+ );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function mbv_indexed_string_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+ // Abstract over the actual field columns, to allow different field types to
+ // reuse those widgets.
+ $value_key = key($field ['columns'] );
+ 
+ $type = str_replace('options_', '', $instance ['widget'] ['type'] );
+ $multiple = $field ['cardinality'] > 1 || $field ['cardinality'] == FIELD_CARDINALITY_UNLIMITED;
+ $required = $element ['#required'];
+ $has_value = isset($items [0] [$value_key] );
+ $properties = _options_properties($type, $multiple, $required, $has_value );
+ 
+ $entity_type = $element ['#entity_type'];
+ $entity = $element ['#entity'];
+ 
+ // Prepare the list of options.
+ $options = _options_get_options($field, $instance, $properties, $entity_type, $entity );
+ 
+ // Put current field values in shape.
+ $default_value = _options_storage_to_form($items, $options, $value_key, $properties );
+ 
+ switch ($type) {
+  case 'select' :
+   $element += array (
+     '#type' => 'select',
+     '#default_value' => $default_value,
+     // Do not display a 'multiple' select box if there is only one option.
+     '#multiple' => $multiple && count($options ) > 1,
+     '#options' => $options 
+   );
+   break;
+  
+  case 'buttons' :
+   // If required and there is one single option, preselect it.
+   if ($required && count($options ) == 1) {
+    reset($options );
+    $default_value = array (
+      key($options ) 
+    );
+   }
+   
+   // If this is a single-value field, take the first default value, or
+   // default to NULL so that the form element is properly recognized as
+   // not having a default value.
+   if (! $multiple) {
+    $default_value = $default_value ? reset($default_value ) : NULL;
+   }
+   
+   $element += array (
+     '#type' => $multiple ? 'checkboxes' : 'radios',
+     // Radio buttons need a scalar value.
+     '#default_value' => $default_value,
+     '#options' => $options 
+   );
+   break;
+  
+  case 'onoff' :
+   $keys = array_keys($options );
+   $off_value = array_shift($keys );
+   $on_value = array_shift($keys );
+   $element += array (
+     '#type' => 'checkbox',
+     '#default_value' => (isset($default_value [0] ) && $default_value [0] == $on_value) ? 1 : 0,
+     '#on_value' => $on_value,
+     '#off_value' => $off_value 
+   );
+   // Override the title from the incoming $element.
+   $element ['#title'] = isset($options [$on_value] ) ? $options [$on_value] : '';
+   
+   if ($instance ['widget'] ['settings'] ['display_label']) {
+    $element ['#title'] = $instance ['label'];
+   }
+   break;
+ }
+ 
+ $element += array (
+   '#value_key' => $value_key,
+   '#element_validate' => array (
+     'options_field_widget_validate' 
+   ),
+   '#properties' => $properties 
+ );
+ 
+ return $element;
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function mbv_indexed_string_field_widget_settings_form($field, $instance) {
+ $form = array ();
+ if ($instance ['widget'] ['type'] == 'options_onoff') {
+  $form ['display_label'] = array (
+    '#type' => 'checkbox',
+    '#title' => t('Use field label instead of the "On value" as label' ),
+    '#default_value' => $instance ['widget'] ['settings'] ['display_label'],
+    '#weight' => - 1 
+  );
+ }
+ return $form;
+}
+
+/**
+ * Form element validation handler for options element.
+ */
+function mbv_indexed_string_field_widget_validate($element, &$form_state) {
+ if ($element ['#required'] && $element ['#value'] == '_none') {
+  form_error($element, t('!name field is required.', array (
+    '!name' => $element ['#title'] 
+  ) ) );
+ }
+ // Transpose selections from field => delta to delta => field, turning
+ // multiple selected options into multiple parent elements.
+ $items = _options_form_to_storage($element );
+ form_set_value($element, $items, $form_state );
+}
+
+/**
+ * Implements hook_field_widget_error().
+ */
+function mbv_indexed_string_field_widget_error($element, $error, $form, &$form_state) {
+ form_error($element, $error ['message'] );
+}
+
+/**
+ * ========================================
+ * Implements create field and instance.
+ * ========================================
+ */
+function mbv_support_field_create_instance($fields_info) {
+ field_cache_clear();
+ 
+ $field_name = $fields_info ['field_name'];
+ 
+ $field_type = ! empty($fields_info ['type'] ) ? $fields_info ['type'] : 'indexed';
+ 
+ $entity_type = $fields_info ['entity_type']; // mbv_support_entity
+ 
+ $bundle = $fields_info ['bundle'];
+ 
+ $label = $fields_info ['label'];
+ 
+ $lock = ! empty($fields_info ['lock'] ) ? TRUE : FALSE;
+ 
+ $settings = ! empty($fields_info ['settings'] ) ? $fields_info ['settings'] : array ();
+ 
+ 
+ $weight = ! empty($fields_info ['weight'] ) ? $fields_info ['weight'] : 0;
+ 
+ $required = (! empty($fields_info ['required'] )) ? $fields_info ['required'] : FALSE;
+ 
+ $field = field_info_field($field_name );
+ $instance = field_info_instance($entity_type, $field_name, $bundle );
+ 
+ if (empty($field ) && empty($instance )) {
+  $field = array (
+    'field_name' => $field_name,
+    'type' => $field_type,
+    'cardinality' => 1,
+    'entity_types' => array (
+      $entity_type 
+    ),
+    'translatable' => FALSE,
+    'locked' => $lock,
+    'settings' => $settings 
+  );
+  $field = field_create_field($field );
+  
+  $instance = array (
+    'field_name' => $field_name,
+    'entity_type' => $entity_type,
+    'bundle' => $bundle,
+    
+    'label' => $label,
+    'required' => $required,
+    'settings' => $settings,
+    
+    'widget' => array (
+      'type' => $field_type,
+      'weight' => $weight,
+      'settings' => array () 
+    ),
+    
+    'display' => array (
+      'default' => array (
+        'label' => 'above',
+        'type' => 'mbv_support_entity',
+        'settings' => array (),
+        'weight' => $weight 
+      ) 
+    ) 
+  );
+  $instance = field_create_instance($instance );
+ }
+}
+
+/**
+ * DELETE FIELD AND INSTANCE
+ */
+function mbv_fields_delete_fields($type) {
+ // Read the fields for any active or inactive field of the specified type.
+ foreach ( field_read_fields(array (
+   'type' => $type 
+ ), array (
+   'include_inactive' => TRUE 
+ ) ) as $field_name => $field ) {
+  mbv_fields_field($field_name );
+ }
+}
+
+function mbv_fields_field($field_name) {
+ // In case the field is inactive, first activate it.
+ mbv_fields_activate_field($field_name );
+ 
+ // Delete the field.
+ field_delete_field($field_name );
+}
+
+function mbv_fields_delete_instances($entity_type, $bundle = NULL) {
+ // Prepare a parameters array to load the specified instances.
+ $params = array (
+   'entity_type' => $entity_type 
+ );
+ 
+ if (! empty($bundle )) {
+  $params ['bundle'] = $bundle;
+ }
+ 
+ // Read and delete the matching field instances.
+ foreach ( field_read_instances($params, array (
+   'include_inactive' => TRUE 
+ ) ) as $instance ) {
+  mbv_fields_delete_instance($instance );
+ }
+}
+
+function mbv_fields_delete_instance($instance) {
+ // First activate the instance's field if necessary.
+ $field_name = $instance ['field_name'];
+ $activated = mbv_fields_activate_field($field_name );
+ 
+ // Then delete the instance.
+ field_delete_instance($instance, FALSE );
+ 
+ // Now check to see if there are any other instances of the field left.
+ $field = field_info_field($field_name );
+ 
+ if (count($field ['bundles'] ) == 0) {
+  field_delete_field($field_name );
+ } elseif ($activated) {
+  // If there are remaining instances but the field was originally disabled,
+  // disabled it again now.
+  $field ['active'] = 0;
+  field_update_field($field );
+ }
+}
+
+function mbv_fields_activate_field($field_name) {
+ // Set it to active via a query because field_update_field() does
+ // not work on inactive fields.
+ $updated = db_update('field_config' )->fields(array (
+   'active' => 1 
+ ) )->condition('field_name', $field_name, '=' )->execute();
+ 
+ // If a row was actually updated...
+ if ($updated) {
+  // Clear the field cache to refresh the field info data.
+  field_cache_clear();
+  return TRUE;
+ }
+ 
+ return FALSE;
+}
+
+

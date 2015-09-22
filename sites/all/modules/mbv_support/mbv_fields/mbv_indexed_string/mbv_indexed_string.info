@@ -1,0 +1,13 @@
+name = MBV Fields - Indexed String
+description = This module is using for enable Field for whole MBV System
+package = MBV
+
+core = 7.x
+version = '7.x-0.6-01'
+
+; Module includes
+
+; Views includes
+
+dependencies[] = field
+dependencies[] = field_sql_storage

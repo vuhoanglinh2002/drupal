@@ -1,0 +1,4 @@
+name = Example Upload File Drupal
+description = Allow configuration the directory to upload file (e.g config public//demo, s3://mbvmca/_developer/<my_name>
+core = 7.x
+package = Train Drupal

@@ -1,0 +1,13 @@
+name = Auto Topup
+description = Autotopup package
+package = Train Drupal
+core = 7.x
+
+dependencies[] = entity
+dependencies[] = views
+dependencies[] = views_bulk_operations
+
+files[] = views/plugins/auto_topup_views_plugin_query.inc
+files[] = views/handlers/auto_topup_handler_area_empty_text.inc
+files[] = views/handlers/auto_topup_handler_field_operations.inc
+files[] = views/handlers/auto_topup_handler_field_vbo.inc

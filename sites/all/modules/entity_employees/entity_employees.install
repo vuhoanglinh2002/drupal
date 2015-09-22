@@ -1,0 +1,207 @@
+<?php
+define('TABLE', 'entity_employees');
+/**
+* Implements hook_schema()
+*/
+function entity_employees_schema() {
+  $schema = array();
+
+  // The name of the table can be any name we choose. However, name spacing the table with the module name is best practice
+  $schema[TABLE] = array(
+    'description' => 'The base table for employees entity.',
+    'fields' => array(
+      'eid' => array(
+        'description' => 'Primary key of the employee entity.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      // If we allow multiple bundles, then the schema must handle that;
+      // We'll put it in the 'bundle_types' field to avoid confusion entity type
+      'bundle_type' => array(
+        'description' => 'The bundle type',
+        'type' => 'text',
+        'size' => 'medium',
+        'not null' => TRUE,
+      ),
+      'employee_id' => array(
+        'description' => 'A description of identified',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'full_name' => array(
+        'description' => 'Full name of employee',
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+      'department' => array(
+        'description' => 'A department of employee',
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+      'uid' => array(
+        'description' => 'Account of employee',
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+      'password' => array(
+        'description' => 'Password of employee',
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+      'sex'=> array(
+        'description' => 'Sex of employee',
+        'type' => 'int',
+        'length' => 1,
+        'default' => 0,
+      ),
+      'dayofbirth' => array(
+        'description' => 'Birthday of employee',
+        'type' => 'int',
+        'default' => 0,
+      ),
+      'created' => array(
+        'description' => 'Time created',
+        'type' => 'int',
+        'default' => 0,
+      )
+    ),
+    'primary key' => array('eid'),
+  );
+
+  return $schema;
+}
+
+
+/**
+* Implement hook_uninstall()
+*/
+function entity_employees_uninstall() {
+
+//  $field_bundle = field_info_bundles(TABLE);
+//  foreach($field_bundle as $bundle => $entity_info) {
+//    $field_info = field_info_instance(TABLE, $bundle);
+//    foreach($field_info as $field_name => $values) {
+//      field_delete_field($field_name);
+//      $instance = field_info_instance(TABLE, $field_name, $bundle);
+//      field_delete_instance($instance);
+//    }
+//  }
+  $transaction = db_transaction();
+  try {
+    $entity = db_select('field_config_instance', 'fci')
+        ->fields('fci')
+        ->condition('entity_type', 'entity_employees')
+        ->execute()
+        ->fetchAll();
+
+    foreach($entity as $object){
+
+      $table_name = 'field_data_' . $object->field_name;
+      if (db_table_exists($table_name)) {
+        // Delete all config.
+        field_delete_field($object->field_name);
+
+        // Delete all instances.
+        db_delete('field_config_instance')
+            ->condition('field_name', $object->field_name)
+            ->execute();
+
+        // Nuke field data and revision tables.
+        db_drop_table($table_name);
+        db_drop_table('field_revision_' . $object->field_name);
+      }
+    }
+
+  }
+  catch (Exception $e) {
+    $transaction->rollback();
+    watchdog_exception('entity_employees', $e);
+    throw $e;
+  }
+
+
+}
+
+/**
+ * Implemtent hook_install()
+ */
+function entity_employees_install() {
+  $primary_keys = 'eid';
+  // Add First Record (Entity) To Database
+  $entity = new stdClass();
+  $entity->bundle_type = 'mbv';
+  $entity->employee_id = 'MBV1';
+  $entity->full_name = 'Nguyen Van A';
+  $entity->dayofbirth = time();
+  $entity->created = time();
+  drupal_write_record(TABLE, $entity, $primary_keys);
+
+  // Add Second Record (Entity) To Database
+  $entity = new stdClass();
+  $entity->bundle_type = 'mbv';
+  $entity->employee_id = 'MBV2';
+  $entity->full_name = 'Nguyen Van B';
+  $entity->dayofbirth = time();
+  $entity->created = time();
+  drupal_write_record(TABLE, $entity, $primary_keys);
+
+  // Add Second Record (Entity) To Database
+  $entity = new stdClass();
+  $entity->bundle_type = 'tcb';
+  $entity->employee_id = 'TCB1';
+  $entity->full_name = 'Nguyen Van C';
+  $entity->dayofbirth = time();
+  $entity->created = time();
+  drupal_write_record(TABLE, $entity, $primary_keys);
+}
+
+/**
+ * Implement hook_enable()
+ */
+function entity_employees_enable() {
+
+  if(!field_info_field('field_employees_mbv')) {
+    $field = array(
+      'field_name' => 'field_employees_mbv',
+      'type' => 'text',
+    );
+
+    field_create_field($field);
+
+    $instance = array(
+      'field_name' => $field['field_name'],
+      'entity_type' => TABLE,
+      'bundle' => 'mbv',
+      'widget' => array(
+        'type' => 'textfield',
+      ),
+    );
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Implement hook_update_N
+ */
+function entity_employees_update_7000(&$sandbox){
+
+  if(db_table_exists(TABLE) && !db_field_exists(TABLE, 'data')){
+    $data = array(
+      'type' => 'blob',
+      'size' => 'normal',
+      'description' => 'A data store of employee',
+    );
+    db_add_field(TABLE, 'data', $data);
+  }
+  return t('Module Entity Employee was updated.');
+}
+
+
+

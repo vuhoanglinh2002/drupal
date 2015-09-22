@@ -1,0 +1,7 @@
+name = Module Employee
+description = This module is manager employee
+core = 7.x
+version = '7.x-0.1'
+dependencies[] = entity
+dependencies[] = views
+project = "Example Employee"

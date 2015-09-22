@@ -1,0 +1,417 @@
+<?php
+define('EMPLOYEE_TABLE', 'employee_tbl');
+/**
+ * Implements hook_entity_info()
+ */
+function employee_entity_info(){
+    $info = array(
+      'employee' => array(
+          'label' => t('EMPLOYEES'),
+          'contronller class' => 'EmployeeController',
+          'base table' => EMPLOYEE_TABLE,
+          'fieldable' => TRUE,
+          'module' => 'employee',
+          'uri callback' => 'employee_uri',
+          'entity keys' => array(
+              'id' => 'id',
+              'label' => 'fullname',
+              'bundle' => 'bundle_type',
+          ),
+          'bundle keys' => array(
+              'bundle' => 'bundle_type',
+          ),
+          'bundles' => array(),
+          'view modes' => array(
+            'full' => array(
+               'label' => t('Full Content'),
+                'custom settings' => TRUE,
+            ),
+            'summary' => array(
+               'label' => t('Summary'),
+                'custom settings' => TRUE
+            ),
+          ),
+      ),
+    );
+}
+
+/**
+ * implement hook_entity_property_info_alter()
+ */
+function employee_entity_property_info_alter(&$info) {
+    $properties = &$info['employee']['properties'];
+    $properties['uid'] = array(
+      'label' => t("Author"),
+        'type' => 'user',
+        'description' => t('The author of the entity_employees.'),
+        'setter callback' => 'entity_peorperty_verbatim_set',
+        'required' => TRUE,
+        'schema field' => 'uid',
+    );
+}
+
+/**
+ * implement hook_entity_info_alter
+ */
+function employee_entity_info_alter(&$entity_info){
+    $entity_info['employee']['access callback'] = 'employee_access';
+    foreach(employee_bundle_types() as $type => $info){
+        $entity_info['employee']['bundles'][$type] = array(
+          'label' => $info,
+            'admin' => array(
+                'path' => 'admin/structure/employee/manage/' .$type,
+                'real path' => 'admin/structure/employee/manage/' . $type,
+                'bundle argument' => 4,
+            )
+        );
+    }
+}
+
+/**
+ * Check access permissions for employee entities.
+ */
+function employee_access($op, $employee = NULL, $account = NULL, $entity_type = NULL)
+{
+    switch($op){
+        case 'create':
+            return user_access('administrator entity_employees', $account) || user_access('create entity_employees', $account);
+        case 'view':
+            return user_access('administrator entity_employees', $account) || user_access('view entity_employees', $account) || user_access('view entity_employees');
+        case 'edit':
+            return user_access('administrator entity_employees', $account) || user_access('edit entity_employees', $account);
+        case 'delete':
+            return user_access('administrator entity_employees', $account) || user_access('delete entity_employees', $account);
+    }
+}
+
+
+/**
+ * List of bundle type
+ */
+function employee_bundle_types($bundle_tyeps = NULL) {
+    $types = array(
+      'mbv' => t('MBV'),
+        'tcb' => t('TCB')
+    );
+    return $types;
+}
+
+/**
+ * implement hook_menu
+ */
+function employee_menu()
+{
+    $items = array();
+    $employee_uri = '%employee';
+    $employee_argument_position = 2;
+
+    $items['admin/structure/entity_employees/manage'] = array(
+        'title' => t('Manager Employee'),
+        'description' => 'Manage Employee',
+        'access callback' => TRUE
+    );
+    foreach(employee_bundle_types() as $type => $info){
+        $entity = employee_ini($type);
+        $items['admin/structure/employee/manage/'.$type] = array(
+          'title' => $info,
+            'description' => 'Manage Employee MBV',
+            'page callback' => 'admin_employee_info',
+            'page arguments' => array(4),
+            'file' =>  'employee.pages.inc',
+            'access callback' => TRUE,
+            'access arguments' => TRUE,
+        );
+        $items['admin/structure/employee/manage/'.$type.'/add'] = array(
+          'title' => t('Add'),
+            'page callback' => 'drupal_get_form',
+            'access arguments' => TRUE,
+            'page arguments' => array('employee_form', $entity, $type),
+            'file' => 'employee.pages.inc'
+        );
+    }
+
+    $items['employee'] = array(
+      'title' => t('Employee'),
+        'access callback' => 'entity_access',
+        'access arguments' => array('view', 'employee', $employee_argument_position),
+        'page callback' => 'employee_list',
+        'file' => 'employee.pages.inc',
+        'type' => MENU_NORMAL_ITEM
+    );
+
+    //Wildcard auto-loader menu
+    $items[$employee_uri] = array();
+
+    //View
+    $items['employee/view/' . $employee_uri] = array(
+        'title' => t('View'),
+        'page callback' => 'employee_view_',
+        'page arguments' => array($employee_argument_position),
+        'access callback' => array('entity_access'),
+        'access arguments' => array('view', 'employee', $employee_argument_position),
+        'file' => 'employee.pages.inc',
+        'type' => MENU_LOCAL_TASK,
+    );
+
+    //Edit
+    $items['employee/edit/' . $employee_uri] = array(
+        'title' => t('UPDATE'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('employee_form', $employee_argument_position),
+        'file' => 'employee.pages.inc',
+        'access callback' => 'entity_access',
+        'access arguments' => array('edit', 'employee', $employee_argument_position),
+        'type' => MENU_LOCAL_TASK,
+    );
+
+    //Edit
+    $items['employee/delete/' . $employee_uri] = array(
+        'title' => t('UPDATE'),
+        'page callback' => 'employee_delete',
+        'page arguments' => array($employee_argument_position),
+        'access arguments' => array('delete', 'employee', $employee_argument_position),
+        'access callback' => 'entity_access',
+        'type' => MENU_CALLBACK,
+    );
+
+    $items['admin/config/employee/settings'] = array(
+        'title' => 'Employee Settings',
+        'description' => 'Description of module settings page',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('employee_setting_admin'),
+        'access arguments' => array('administrator entity_employees'),
+        'file' => 'employee.pages.inc'
+    );
+    $items['employee/embed'] = array(
+        'title' => 'EMBED',
+        'page callback' => 'employee_views_embed',
+        'access arguments' => array('administrator entity_employees'),
+        'page arguments' => array($employee_argument_position),
+        'file' => 'employee.pages.inc',
+        'access callback' => TRUE,
+        'type' => MENU_NORMAL_ITEM,
+    );
+
+    return $items;
+}
+
+/**
+ * implement hook_permission()
+ */
+function employee_permission(){
+    $permission =  array(
+        'administrator entity_employees' => array(
+            'title' => t('Administrator Employee Entities'),
+            'restrict access' => TRUE,
+        ),
+        'create entity_employees' => array(
+            'title' => t('Create Employee Entities'),
+            'restrict access' => TRUE,
+        ),
+        'view entity_employees' => array(
+            'title' => t('View Employee Entities'),
+            'restrict access' => TRUE,
+        ),
+        'edit entity_employees' => array(
+            'title' => t('Edit Employee Entities'),
+            'restrict access' => TRUE,
+        ),
+        'delete entity_employees' => array(
+            'title' => t('Delete Employee Entities'),
+            'restrict access' => TRUE,
+        ),
+    );
+    return $permission;
+}
+
+/**
+ * implement callback_entity_info_uri()
+ */
+function employee_uri($entity) {
+    return array(
+        'path' => 'employee/' . $entity->id,
+    );
+}
+
+/**
+ * Save employee
+ */
+function employee_save($entity)
+{
+    entity_save('employee', $entity);
+}
+
+/**
+ * Delete employee
+ */
+function employee_delete($entity)
+{
+    entity_delete('employee', entity_id('employee', $entity));
+}
+
+/**
+ * delete multiple entity_employees
+ */
+function employee_delete_multiple($emp_ids)
+{
+    entity_delete_multiple('employee', $emp_ids);
+}
+
+/**
+ * implement hook_theme()
+ */
+function employee_theme(){
+    $theme = array();
+
+    //theme info
+    $theme['employee_template_info'] = array(
+      'template' => 'employee-template-info',
+        'path' => drupal_get_path('module', 'employee') . '/templates',
+        'variables' => array(
+            'items' => NULL
+        )
+    );
+    $theme['employee_template_view'] = array(
+      'template' => 'employee-template-view',
+        'path' => drupal_get_path('module', 'employee') . '/templates',
+        'variables' => array(
+            'items' => NULL
+        )
+    );
+    $theme['employee_template_views_embed'] = array(
+        'template' => 'employee-template-views-embed',
+        'path' => drupal_get_path('module', 'employee') . '/templates',
+        'variables' => array(
+            'items' => NULL
+        )
+    );
+
+    return $theme;
+}
+
+/**
+ * @param $id
+ * @param bool|FALSE $reset
+ * wildcard auto-loader menu load location
+ */
+function employee_load($id, $reset = FALSE){
+    $ids = (isset($ids) ? array($id) : array());
+    $emp = employee_load_multiple($ids, array(), $reset);
+    return $emp ? reset($ids) : FALSE;
+}
+
+function employee_load_multiple($id = FALSE, $condition = array(), $reset = FALSE){
+    return entity_load('employee', $id, $condition, $reset);
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function employee_views_api() {
+    return array(
+        'api' => 3,
+        'path' => drupal_get_path('module', 'employee') . '/views',
+    );
+}
+
+/**
+ * @param null $bundle_type
+ * @return $entity
+ * implement employee ini
+ */
+function employee_ini($bundle_type = NULL) {
+    if($bundle_type) {
+        $entity = new stdClass();
+        $entity->employee_id = '';
+        $entity->bundle_type = $bundle_type;
+        $entity->fullname = '';
+        $entity->dayofbirth = date('Y-m-d');
+        return $entity;
+    }
+}
+
+/**
+ * Implements hook_field_extra_fields().
+ *
+ * This exposes the "extra fields" (usually properties that can be configured
+ * as if they were fields) of the entity as pseudo-fields
+ * so that they get handled by the Entity and Field core functionality.
+ * Node titles get treated in a similar manner.
+ */
+function employee_field_extra_fields() {
+    $form_elements['employee_id'] = array(
+        'label' => t('Employee ID'),
+        'description' => t('Employee ID (an extra form field)'),
+        'weight' => -5,
+    );
+    $form_elements['fullname'] = array(
+        'label' => t('Full Name'),
+        'description' => t('Full Name (an extra form field)'),
+        'weight' => -4,
+    );
+    $form_elements['dayofbirth'] = array(
+        'label' => t('DOB'),
+        'description' => t('BOD (an extra form field)'),
+        'weight' => -3,
+    );
+
+    $display_elements['employee_id'] = array(
+        'label' => t('Employee ID'),
+        'description' => t('Just like title, but trying to point out that it is a separate property'),
+        'weight' => -5,
+    );
+    $display_elements['fullname'] = array(
+        'label' => t('Full Name'),
+        'description' => t('Just like title, but trying to point out that it is a separate property'),
+        'weight' => -4,
+    );
+    $display_elements['dayofbirth'] = array(
+        'label' => t('DOB'),
+        'description' => t('Just like title, but trying to point out that it is a separate property'),
+        'weight' => -3,
+    );
+    // Since we have only one bundle type, we'll just provide the extra_fields
+    // for it here.
+    $extra_fields = array();
+    foreach(employee_bundle_types() as $type => $info){
+        $extra_fields['employee'][$type]['form'] = $form_elements;
+        $extra_fields['employee'][$type]['display'] = $display_elements;
+    }
+    return $extra_fields;
+}
+
+/**
+ * Class EmployeeController
+ */
+class EmployeeController extends EntityAPIController {
+    public function save($entity, DatabaseTransaction $transaction = NULL){
+        return parent::save($entity, $transaction);
+    }
+
+    public function buildContent($entity, $view_mode = 'full', $langcode = NULL, $content = array())
+    {
+
+        $content['employee_id'] = array(
+            '#type' => 'item',
+            '#title' => t('Employee ID'),
+            '#markup'=> $entity->employee_id,
+        );
+
+        $content['fullname'] = array(
+            '#type' => 'item',
+            '#title' => t('Full name'),
+            '#markup' => $entity->fullname,
+        );
+
+        $content['dayofbirth'] = array(
+            '#type' => 'item',
+            '#title' => t('Day of birth'),
+            '#markup' => date('m-d-Y', $entity->dayofbirth),
+        );
+
+        return parent::buildContent($entity, $view_mode, $langcode, $content);
+    }
+}
+
+
+?>

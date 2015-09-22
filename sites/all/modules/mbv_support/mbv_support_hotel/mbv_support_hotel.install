@@ -1,0 +1,109 @@
+<?php
+
+/**
+ * Author: Bao Nguyen
+ */
+/**
+ * hook_uninstall
+ */
+function mbv_support_hotel_uninstall() {
+ // Delete any line item reference fields via bundle
+ foreach ( field_info_instances('mbv_support_entity', 'mbv_issue_hotel' ) as $field_name => $field_info ) {
+  
+  mbv_fields_delete_fields($field_name );
+ }
+ 
+ mbv_fields_delete_instances('mbv_support_entity', 'mbv_issue_hotel' );
+ 
+ // Unset all variable value
+ variable_set('mbv_issue_hotel' . '_last_sync_time', '' );
+ variable_set('mbv_issue_hotel' . '_next_sync_time', '' );
+ variable_set('mbv_issue_hotel' . '_sync_status', '' );
+ 
+ variable_set('mbv_issue_hotel' . '_sync_url', '' );
+ variable_set('mbv_issue_hotel' . '_sync_time', '' );
+ variable_set('mbv_issue_hotel' . '_remind_time', '' );
+ variable_set('mbv_issue_hotel' . '_remind_time_flag', '' );
+}
+
+/**
+ * Implements hook_install().
+ */
+function mbv_support_hotel_install() {
+ // Add default url
+ variable_set('mbv_support_system_url_hotel', 'https://ticket.mobivi.vn/mca/index.php?route=report/order&status=failed&type=bus' );
+ 
+ // Add default next sync time
+ variable_set('mbv_support_system_url_sync_time_hotel', 60 );
+ 
+ // Add field instance default for Hotel
+ $fields_info = array (
+   "hotel_provider" => array (
+     'field_name' => 'hotel_provider',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_hotel',
+     'label' => 'Hotel Provider',
+     'lock' => TRUE,
+     'type' => 'list_text',
+     'required' => TRUE,
+     'settings' => array (
+       'allowed_values' => (array (
+         'agoda' => 'agoda',
+         'iviu' => 'iviu',
+         'other' => 'other' 
+       )),
+       'allowed_values_function' => '' 
+     ),
+     'weight' => 1 
+   ),
+   "hotel_failure" => array (
+     'field_name' => 'hotel_failure',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_hotel',
+     'label' => 'Hotel Failure',
+     'lock' => TRUE,
+     'required' => TRUE,
+     'type' => 'list_text',
+     'settings' => array (
+       'allowed_values' => (array (
+         'unknown' => 'unknown',
+         'promotion rooms (regular price/promotion price)' => 'promotion rooms (regular price/promotion price)',
+         'price inconsistency (between SOAP API web interface)' => 'price inconsistency (between SOAP API web interface)',
+         'price change (at payment time)' => 'price change (at payment time)',
+         'system error (bug)' => 'system error (bug)' 
+       )),
+       'allowed_values_function' => '' 
+     ),
+     'weight' => 15 
+   ),
+   "hotel_jira" => array (
+     'field_name' => 'hotel_jira_bug_id',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_hotel',
+     'label' => 'Jira Bug Id',
+     'lock' => TRUE,
+     'type' => 'text',
+     'weight' => 20 
+   ),
+   "hotel_file_upload" => array (
+     'field_name' => 'hotel_upload_file',
+     'entity_type' => 'mbv_support_entity',
+     'bundle' => 'mbv_issue_hotel',
+     'label' => 'Upload file',
+     'type' => 'file',
+     'settings' => array (
+       'display_field' => 0,
+       'display_default' => 0,
+       'file_extensions' => 'txt log pdf doc odt jpg png jpeg gif',
+       'file_directory' => '',
+       'max_filesize' => '10 MB',
+       'description_field' => 0,
+       'uri_scheme' => variable_get('file_default_scheme', 'public' ) 
+     ),
+     'weight' => 30 
+   ) 
+ );
+ foreach ( $fields_info as $field_instance => $field_info ) {
+  mbv_support_field_create_instance($field_info );
+ }
+}

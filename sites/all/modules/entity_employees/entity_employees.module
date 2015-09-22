@@ -1,0 +1,14 @@
+<?php
+$MODULE = "entity_employees";
+$PATH_INCLUDES =  'includes/';
+$INC = 'inc';
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.menus');
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.entity');
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.permissions');
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.actions');
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.views');
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.crons');
+module_load_include($INC, $MODULE, $PATH_INCLUDES . $MODULE . '.batch');
+
+
+

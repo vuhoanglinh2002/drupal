@@ -1,0 +1,34 @@
+name = MBV Support Issues
+description = This module is using for analyze failed process to identify the reason.
+package = MBV
+
+core = 7.x
+version = '7.x-0.1-04'
+
+; Module includes
+
+; Views includes
+
+dependencies[] = views
+dependencies[] = field
+dependencies[] = date_popup
+dependencies[] = date_api
+
+dependencies[] = views_data_export
+
+dependencies[] = mbv_indexed_string
+
+; Fields
+files[] = includes/fields/views_checkboxes_issue.inc
+files[] = includes/fields/views_datetime_convert.inc
+files[] = includes/fields/views_modifier_id_name.inc
+files[] = includes/fields/views_handler_field_view_detail.inc
+
+; Filters
+files[] = includes/filters/views_filter_issue_statues.inc
+files[] = includes/filters/views_filter_system_name.inc
+files[] = includes/filters/views_search_form_issue_date_form.inc
+files[] = includes/filters/views_search_form_issue_date_to.inc
+files[] = includes/filters/views_search_form_issue_memo.inc
+files[] = includes/filters/views_search_form_search_issue_type.inc
+files[] = includes/filters/views_search_form_search_ref_id.inc 

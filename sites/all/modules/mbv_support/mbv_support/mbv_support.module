@@ -1,0 +1,701 @@
+<?php
+
+/**
+ * Author: Bao Nguyen
+ */
+
+/**
+ * Implements hook_entity_info().
+ */
+function mbv_support_entity_info() {
+ $info ['mbv_support_entity'] = array (
+   'label' => t('MBV Support Entity' ),
+
+   'controller class' => 'MBVSupportEntityController',
+
+   'base table' => 'mbv_support_issue',
+
+   'revision table' => 'mbv_support_issue_revision',
+
+   'entity keys' => array (
+     'id' => 'issue_id',
+     'revision' => 'revision_id',
+     'bundle' => 'system_name'
+   ),
+
+   'bundle keys' => array (
+     'bundle' => 'system_type'
+   ),
+
+   'fieldable' => TRUE,
+
+   'bundles' => array (),
+
+   'static cache' => TRUE,
+
+   'view modes' => array (
+     'tweaky' => array (
+       'label' => t('Tweaky' ),
+       'custom settings' => FALSE
+     )
+   )
+ );
+
+ /* Issue revision entity */
+ $info ['mbv_support_issue_revision_entity'] = array (
+   'label' => t('MBV Issue Revision Entity' ),
+
+   'controller class' => 'MBVSupportRevisionEntityController',
+
+   'base table' => 'mbv_support_issue_revision',
+
+   'entity keys' => array (
+     'id' => 'revision_id',
+
+     'bundle' => 'system_name'
+   ),
+
+   'bundle keys' => array (
+     'bundle' => 'system_name'
+   ),
+   'static cache' => TRUE
+ );
+
+ return $info;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function mbv_support_menu() {
+ $items = array ();
+
+ // Admin sync
+ $items ['admin/config/mbv_support'] = array (
+   'title' => 'MBV Support',
+   'description' => t('Configuration for Sync Issues' ),
+   'page callback' => 'system_admin_menu_block_page',
+   'access arguments' => array (
+     'access administration pages'
+   ),
+   'file path' => 'modules/system',
+   'file' => 'system.admin.inc'
+ );
+
+ // Admin
+ // Email
+ $items ['admin/config/mbv_support/email_config'] = array (
+   'title' => 'Email config',
+   'description' => 'Email config',
+   'page callback' => 'drupal_get_form',
+   'page arguments' => array (
+     'mbv_support_email_config_form'
+   ),
+   'access arguments' => array (
+     'email mbv_support_entity entities'
+   ),
+   'file' => 'includes/mbv_support_config_email_admin_pages.inc'
+ );
+
+ // Admin
+ // Fields
+ $items ['admin/structure/mbv_support'] = array (
+   'title' => 'MBV Support',
+   'description' => 'Manage issue types.',
+   'page callback' => 'mbv_support_list_entities',
+   'access arguments' => array (
+     'administer mbv_support_entity entities'
+   ),
+   'file' => 'includes/mbv_support_config_sync_pages.inc'
+ );
+
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['admin/structure/mbv_support/' . $type] = array (
+    'title' => $issue_type ['name'],
+    'page callback' => 'mbv_support_type_redirect',
+    'page arguments' => array (
+      $type
+    ),
+    'access arguments' => array (
+      'administer mbv_support_entity entities'
+    )
+  );
+ }
+
+ // Front end
+ $items ['mbv/issue'] = array (
+   'title' => 'MBV Support',
+   'page callback' => 'mbv_support_issues_pages_list',
+   'access arguments' => array (
+     'access content'
+   ),
+   'file' => 'includes/mbv_support_issues_pages.inc'
+ );
+
+ // Redirect to list page
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name']] = array (
+    'title' => $issue_type ['name'],
+    'page callback' => 'mbv_support_issues_pages_redirect',
+    'page arguments' => array (
+      2
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'includes/mbv_support_issues_pages.inc'
+  );
+ }
+
+ // Create issue manual
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name'] . '/create'] = array (
+    'title' => 'Add New',
+    'page callback' => 'mbv_support_issues_type_pages',
+    'page arguments' => array (
+      2
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'file' => 'includes/mbv_support_issues_pages.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10
+  );
+ }
+
+ // View detail issue - parent
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name'] . '/%mbv_support'] = array (
+    'title' => 'View Detail',
+    'page callback' => 'mbv_support_redirect_detail_with_comment_pages',
+    'page arguments' => array (
+      2,
+      3
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 15
+  );
+ }
+ // View Detail
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name'] . '/detail/%mbv_support'] = array (
+    'title' => 'View Detail',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array (
+      'mbv_support_issues_type_pages_form',
+      2,
+      4
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'file' => 'includes/mbv_support_issues_pages.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 15
+  );
+ }
+
+ // Comment
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name'] . '/comment/%mbv_support'] = array (
+    'title' => 'Comment',
+    'page callback' => 'mbv_support_comment',
+    'page arguments' => array (
+      2,
+      4
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'file' => 'includes/mbv_support_comment_pages.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 17
+  );
+ }
+
+ // Revision
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name'] . '/revision/%mbv_support_revision'] = array (
+    'title' => 'Revision',
+    'page callback' => 'mbv_support_revision',
+    'page arguments' => array (
+      2,
+      4
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'file' => 'includes/mbv_support_revision_pages.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20
+  );
+ }
+
+ // Revision
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['mbv/issue/' . $issue_type ['short_name'] . '/revision/%mbv_support/%mbv_support_revision/view'] = array (
+    'title' => 'Revision',
+    'page callback' => 'mbv_support_revision_detail_page',
+    'page arguments' => array (
+      2,
+      4,
+      5
+    ),
+    'access arguments' => array (
+      'view ' . $issue_type ['type'] . ' entities'
+    ),
+    'file' => 'includes/mbv_support_revision_pages.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20
+  );
+ }
+
+ return $items;
+}
+
+function mbv_support_type_redirect($type) {
+ drupal_goto('admin/structure/mbv_support/' . $type . '/fields' );
+}
+
+function mbv_support_menu_alter(&$items) {
+ foreach ( mbv_issue_types() as $type => $issue_type ) {
+  $items ['admin/structure/mbv_support/' . $type . '/fields'] ['context'] = MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE;
+  $items ['admin/structure/mbv_support/' . $type . '/display'] ['context'] = MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE;
+ }
+}
+
+// Theme
+function theme_mbv_issue_types_admin_overview($variables) {
+ $mbv_issue_types = $variables ['issue_types'];
+
+ $output = check_plain($mbv_issue_types ['name'] );
+ $output .= ' <small>' . t('(Machine name: @type)', array (
+   '@type' => $mbv_issue_types ['type']
+ ) ) . '</small>';
+ $output .= '<div class="description">' . filter_xss_admin($mbv_issue_types ['description'] ) . '</div>';
+
+ return $output;
+}
+
+function mbv_support_load($issue_id = NULL, $reset = FALSE) {
+ $issue_ids = (isset($issue_id ) ? array (
+   $issue_id
+ ) : array ());
+ $basic = mbv_support_load_multiple($issue_ids, array (), $reset );
+ return $basic ? reset($basic ) : FALSE;
+}
+
+function mbv_support_load_multiple($issue_ids = FALSE, $conditions = array(), $reset = FALSE) {
+ return entity_load('mbv_support_entity', $issue_ids, $conditions, $reset );
+}
+
+function mbv_support_revision_load($revision_id = NULL, $reset = FALSE) {
+ $revision_ids = (isset($revision_id ) ? array (
+   $revision_id
+ ) : array ());
+ $basic = mbv_support_revision_load_multiple($revision_ids, array (), $reset );
+ return $basic ? reset($basic ) : FALSE;
+}
+
+function mbv_support_revision_load_multiple($revision_ids = FALSE, $conditions = array(), $reset = FALSE) {
+ return entity_load('mbv_support_issue_revision_entity', $revision_ids, $conditions, $reset );
+}
+
+/**
+ * ----------DECLARE HOOK---------------
+ */
+/**
+ * Implements hook_hook_info().
+ */
+function mbv_support_hook_info() {
+ $hooks = array (
+   'mbv_issue_status_info' => array (
+     'group' => 'mbv'
+   ),
+   'mbv_issue_status_info_alter' => array (
+     'group' => 'mbv'
+   ),
+   'mbv_issue_type_info' => array (
+     'group' => 'mbv'
+   ),
+   'mbv_issue_type_info_alter' => array (
+     'group' => 'mbv'
+   ),
+   'mbv_sync_log_info' => array (
+     'group' => 'mbv'
+   ),
+   'mbv_sync_log_type' => array (
+     'group' => 'mbv'
+   ),
+   'mbv_sync_log_info_alter' => array (
+     'group' => 'mbv'
+   )
+ );
+
+ return $hooks;
+}
+
+/**
+ * -----------ENTITY CONTROLLER--------
+ */
+
+/**
+ * Declare Issue Entity Controller
+ */
+interface MBVSupportEntityControllerInterface extends DrupalEntityControllerInterface {
+
+ public function create();
+
+ public function save($entity);
+}
+class MBVSupportEntityController extends DrupalDefaultEntityController implements MBVSupportEntityControllerInterface {
+
+ public function create() {
+  $entity = new stdClass();
+  $entity->issue_id = 0;
+  $entity->ref_id = '';
+  $entity->system_name = '';
+  $entity->issue_type = '';
+  $entity->status = '';
+  $entity->memo = '';
+  $entity->meta_data = '';
+  $entity->uid = 0;
+  $entity->created_at = 0;
+  $entity->updated_at = 0;
+  $entity->revision_id = 0;
+  return $entity;
+ }
+
+ public function save($entity, DatabaseTransaction $transaction = NULL) {
+  $check_add_revision_or_not = $entity->revision_id;
+  if (! isset($transaction )) {
+   $transaction = db_transaction();
+   $started_transaction = TRUE;
+  }
+
+  if (empty($entity->issue_id )) {
+   $entity->created_at = time();
+   $entity->revision_timestamp = time();
+  } else {
+   $entity->updated_at = time();
+   $entity->revision_timestamp = time();
+  }
+
+  module_invoke_all('entity_presave', $entity, 'mbv_support_entity' );
+
+  // Check revision key
+  if (! empty($this->revisionKey )) {
+   $entity->revision_id = $entity->{$this->revisionKey};
+  }
+
+  if (empty($entity->{$this->idKey} )) {
+   $op = 'insert';
+   $return = drupal_write_record($this->entityInfo ['base table'], $entity );
+
+   // Add to Field
+   if (! empty($this->revisionKey )) {
+    drupal_write_record($this->entityInfo ['revision table'], $entity );
+    $update_base_table = TRUE;
+   }
+  } else {
+   $op = 'update';
+   $return = drupal_write_record($this->entityInfo ['base table'], $entity, $this->idKey );
+
+   // Update field
+
+   if (! empty($this->revisionKey )) {
+    if (! empty($entity->revision )) {
+     drupal_write_record($this->entityInfo ['revision table'], $entity );
+     $update_base_table = TRUE;
+    } else {
+     $entity->revision_id = 0;
+     drupal_write_record($this->entityInfo ['revision table'], $entity );
+     $update_base_table = TRUE;
+    }
+   }
+  }
+
+  if (! empty($update_base_table )) {
+   db_update($this->entityInfo ['base table'] )->fields(array (
+     $this->revisionKey => $entity->{$this->revisionKey}
+   ) )->condition($this->idKey, $entity->{$this->idKey} )->execute();
+  }
+
+  $invocation = 'entity_insert';
+
+  if ($op == 'insert') {
+
+   field_attach_insert('mbv_support_entity', $entity );
+  } else {
+
+   field_attach_update('mbv_support_entity', $entity );
+
+   $invocation = 'entity_update';
+  }
+
+  module_invoke_all($invocation, $entity, 'mbv_support_entity' );
+
+  return $entity;
+ }
+}
+
+/**
+ * Declare Issue Revision Controller
+ */
+interface MBVSupportRevisionEntityControllerInterface extends DrupalEntityControllerInterface {
+
+ public function create();
+
+ public function save($entity);
+}
+class MBVSupportRevisionEntityController extends DrupalDefaultEntityController implements MBVSupportRevisionEntityControllerInterface {
+
+ public function create() {
+  $entity = new stdClass();
+  $entity->revision_id = 0;
+  $entity->issue_id = 0;
+  $entity->system_name = '';
+  $entity->issue_type = '';
+  $entity->status = '';
+  $entity->memo = '';
+  $entity->meta_data = '';
+  $entity->uid = 0;
+  $entity->revision_timestamp = 0;
+  $entity->log = '';
+  return $entity;
+ }
+
+ public function save($entity) {
+  if (empty($entity->revision_id )) {
+   $entity->revision_timestamp = time();
+  }
+  module_invoke_all('entity_presave', $entity, 'mbv_support_issue_revision_entity' );
+
+  $primary_keys = $entity->revision_id ? 'revision_id' : array ();
+
+  drupal_write_record('mbv_support_issue_revision', $entity, $primary_keys );
+
+  $invocation = 'entity_insert';
+
+  if (empty($primary_keys )) {
+
+   field_attach_insert('mbv_support_issue_revision_entity', $entity );
+  } else {
+
+   field_attach_update('mbv_support_issue_revision_entity', $entity );
+
+   $invocation = 'entity_update';
+  }
+
+  module_invoke_all($invocation, $entity, 'mbv_support_issue_revision_entity' );
+
+  return $entity;
+ }
+}
+
+/**
+ * ======================
+ * MBV Support UI
+ * ======================
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function mbv_support_permission() {
+ // Email admin
+ $permissions ['email mbv_support_entity entities'] = array (
+   'title' => t('Config Sync Email' ),
+   'description' => t('Config mbv_support_entity Email' )
+ );
+
+ return $permissions;
+}
+
+function mbv_support_redirect_detail_with_comment_pages($system_name, $entity) {
+ drupal_goto('mbv/issue/' . $system_name . '/detail/' . $entity->issue_id . '', array () );
+ return '';
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function mbv_support_form_alter(&$form, &$form_state, $form_id) {
+ if ($form_id == 'simple_comment_form') {
+  $q = explode("/", $_GET ['q'] );
+  $entity = 'mbv_issue_' . $q [2];
+  if (! user_access('edit ' . $entity . ' entities' )) {
+   $form ['comment_fieldset'] ['btn_submit'] = array (
+     '#type' => 'submit',
+     '#value' => t('Submit' ),
+     '#access' => 0
+   );
+  }
+ }
+}
+
+/**
+ * ======
+ * Helper functions
+ * ======
+ */
+
+// Get issues types info
+function mbv_issue_types() {
+ $issue_types = &drupal_static(__FUNCTION__ );
+ if (! isset($issue_types )) {
+  $issue_types = array ();
+  foreach ( module_implements('mbv_issue_type_info' ) as $module ) {
+   foreach ( module_invoke($module, 'mbv_issue_type_info' ) as $type => $issue_type ) {
+    $defaults = array (
+      'description' => $issue_type ['description'],
+      'type' => $type,
+      'module' => $module,
+      'short_name' => $issue_type ['short_name'],
+      'label' => $issue_type ['name']
+    );
+
+    $issue_types [$type] = array_merge($defaults, $issue_type );
+   }
+  }
+
+  // Last allow the info to be altered by other modules.
+  drupal_alter('mbv_issue_type_info', $issue_types );
+ }
+
+ return $issue_types;
+}
+
+// Get issue statuses
+function mbv_issue_statuses() {
+ $issue_statuses = &drupal_static(__FUNCTION__ );
+ if (! isset($issue_statuses )) {
+  $issue_types = array ();
+  foreach ( module_implements('mbv_issue_status_info' ) as $module ) {
+   foreach ( module_invoke($module, 'mbv_issue_status_info' ) as $type => $issue_status ) {
+    $defaults = array (
+      'type' => $type,
+      'label' => $issue_status
+    );
+
+    $issue_statuses [$type] = $issue_status;
+   }
+  }
+
+  // Last allow the info to be altered by other modules.
+  drupal_alter('mbv_issue_type_info', $issue_statuses );
+ }
+
+ return $issue_statuses;
+}
+
+/**
+ * =======
+ * Implements hook_theme().
+ * =======
+ */
+function mbv_support_theme($existing, $type, $theme, $path) {
+ return array (
+   'mbv_support_meta_data_theme' => array (
+     'variables' => array (),
+     'template' => 'theme/mbv_support_meta_data_theme'
+   ),
+   'mbv_issue_types_admin_overview' => array (
+     'variables' => array (
+       'issue_types' => array ()
+     )
+   )
+ );
+}
+
+/**
+ * Implement hook_mbv_issue_status_info
+ */
+function mbv_support_mbv_issue_status_info() {
+ $issue_status = array (
+   '' => '- Select a value -',
+   'pending' => 'Pending',
+   'classified' => 'Classified',
+   'archieve' => 'Archieve'
+ );
+
+ return $issue_status;
+}
+
+/**
+ * Implement hook_mbv_sync_log_type
+ */
+function mbv_support_mbv_sync_log_type() {
+ $log_types = array (
+   '' => '- Select a value -',
+   'info' => 'Info',
+   'debug' => 'Debug',
+   'error' => 'Error',
+   'warning' => 'warning',
+   'fatal' => 'Fatal',
+   'unknown' => 'Unknown'
+ );
+
+ return $log_types;
+}
+
+function mbv_support_views_api() {
+ return array (
+   'api' => 3,
+   'path' => drupal_get_path('module', 'mbv_support' ) . '/includes'
+ );
+}
+
+// Check duplicate
+function mbv_support_get_list_ref_id() {
+ $query = db_select('mbv_support_issue', 'm' );
+ $query->fields('m', array (
+   'ref_id'
+ ) );
+ $query->groupBy('m.ref_id' );
+
+ $results = $query->execute()->fetchAll();
+ foreach ( $results as $key => $value ) {
+  $ref_id_arr [$value->ref_id] = $value->ref_id;
+ }
+ return ! empty($ref_id_arr ) ? $ref_id_arr : array ();
+}
+
+/**
+ * Implements hook_mail().
+ */
+function mbv_support_mail($key, &$message, $params) {
+ if ($key == 'system_sync') {
+  $message ['subject'] = $params ['subject'];
+  $message ['body'] = $params ['body'];
+
+  // For sending HTML format in email
+  $message ['headers'] ['Content-Type'] = 'text/html; charset=UTF-8; format=flowed';
+ }
+}
+
+function mbv_support_send_email($sync_date, $sync_result) {
+ global $language;
+ $params ['subject'] = t('MBV Support Issue - Sync Status - CRON' );
+ $params ['body'] = array (
+   t('MBV Support found an issue, please check the detail below.
+     <br/>Sync date: <strong>' . $sync_date . '</strong>
+     <br/>-----------------------------------------------------------------
+     <br/> <strong>SYNC RESULT:</strong> <br/>
+     ' . $sync_result . '
+     <br/><br/><br/>
+     <br/>Please do not reply to this email because we are not monitoring this inbox.
+     <br/><br/>Copyright © 2014 Mobivi JSC. All rights reserved.
+     ' )
+ );
+
+ $list_emails = str_replace(";", ",", variable_get('sync_email_config' ) );
+ $list_emails = trim($list_emails, "," );
+
+ drupal_mail('mbv_support', 'system_sync', $list_emails, $language, $params );
+}

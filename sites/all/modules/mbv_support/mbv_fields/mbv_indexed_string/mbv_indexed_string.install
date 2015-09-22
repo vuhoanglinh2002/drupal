@@ -1,0 +1,30 @@
+<?php
+
+/**
+ * @author baonguyen
+ *
+ */
+
+/**
+ * FIELD STRUCTURE
+ * Implements hook_field_schema().
+ */
+function mbv_indexed_string_field_schema($field) {
+ if ($field ['type'] == 'indexed') {
+  return array (
+    'columns' => array (
+      'text' => array (
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE 
+      ) 
+    ),
+    'indexed' => array (
+      'text' => array (
+        'text' 
+      ) 
+    ) 
+  );
+ }
+}
+
